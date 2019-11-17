@@ -154,17 +154,24 @@ void LatticeSolidPhase::setPressure(doublereal p)
     for (size_t n = 0; n < m_lattice.size(); n++) {
         m_lattice[n]->setPressure(m_press);
     }
-    calcDensity();
+    updateDensity();
 }
 
 doublereal LatticeSolidPhase::calcDensity()
 {
+    warn_deprecated("LatticePhase::calcDensity",
+        "Superseded by LatticeSolidPhase::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+    return density();
+}
+
+void LatticeSolidPhase::updateDensity() {
     double sum = 0.0;
     for (size_t n = 0; n < m_lattice.size(); n++) {
         sum += theta_[n] * m_lattice[n]->density();
     }
     Phase::assignDensity(sum);
-    return sum;
 }
 
 void LatticeSolidPhase::setMoleFractions(const doublereal* const x)
@@ -179,7 +186,7 @@ void LatticeSolidPhase::setMoleFractions(const doublereal* const x)
         m_x[k] = x[k] / m_lattice.size();
     }
     Phase::setMoleFractions(m_x.data());
-    calcDensity();
+    updateDensity();
 }
 
 void LatticeSolidPhase::getMoleFractions(doublereal* const x) const

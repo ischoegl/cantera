@@ -85,8 +85,16 @@ public:
      */
     virtual void setDensity(const doublereal rho);
 
+    /**
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
+     */
     virtual void calcDensity();
 
+protected:
+    virtual void updateDensity();
+
+public:
     /**
      * Overridden setMolarDensity() function is necessary because the density
      * is not an independent variable.

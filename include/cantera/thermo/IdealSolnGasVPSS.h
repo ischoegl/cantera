@@ -107,8 +107,12 @@ protected:
      * partial molar volumes are equal to the species standard state molar
      * volumes. The species molar volumes may be functions of temperature and
      * pressure.
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
      */
     virtual void calcDensity();
+
+    virtual void updateDensity();
     //! @}
 
 public:

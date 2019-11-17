@@ -119,6 +119,11 @@ public:
         assignDensity(rho);
     }
 
+protected:
+
+    virtual void updateDensity() {
+    }
+
 private:
     doublereal m_press;
 };

@@ -232,6 +232,14 @@ void IonsFromNeutralVPSSTP::getdlnActCoeffdlnN(const size_t ld, doublereal* dlnA
 
 void IonsFromNeutralVPSSTP::calcDensity()
 {
+    warn_deprecated("IonsFromNeutralVPSSTP::calcDensity",
+        "Superseded by IonsFromNeutralVPSSTP::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void IonsFromNeutralVPSSTP::updateDensity()
+{
     // This is a two phase process. First, we calculate the standard states
     // within the neutral molecule phase.
     neutralMoleculePhase_->setState_TP(temperature(), pressure());

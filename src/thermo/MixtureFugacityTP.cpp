@@ -246,6 +246,9 @@ void MixtureFugacityTP::setMoleFractions_NoState(const doublereal* const x)
 
 void MixtureFugacityTP::calcDensity()
 {
+    warn_deprecated("MixtureFugacity::calcDensity",
+        "Exception superseded by Phase::updateDensity. "
+        "To be removed after Cantera 2.5. ");
     throw NotImplementedError("MixtureFugacityTP::calcDensity");
 }
 

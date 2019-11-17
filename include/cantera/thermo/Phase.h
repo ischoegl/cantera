@@ -886,6 +886,31 @@ protected:
     //!     @param[in] density_ density (kg/m^3).
     void assignDensity(const double density_);
 
+    /**
+     * Update the density of a mixture where density is not an
+     * independent variable (i.e. a phase that is not compressible).
+     *
+     * For phases that treat density as an independent variable, the
+     * function raises an error.
+     *
+     * By default, the density is calculated using the partial molar
+     * volumes and mole fractions as input. The formula for this is
+     *
+     * \f[
+     * \rho = \frac{\sum_k{X_k W_k}}{\sum_k{X_k V_k}}
+     * \f]
+     *
+     * where \f$X_k\f$ are the mole fractions, \f$W_k\f$ are the molecular
+     * weights, and \f$V_k\f$ are the pure species molar volumes.
+     *
+     * Note, the basis behind this formula is that in an ideal solution the
+     * partial molar volumes are equal to the pure species molar volumes.
+     */
+    virtual void updateDensity() {
+        throw CanteraError("Phase::updateDensity",
+            "Not overloaded for phase '{}' ('{}')", name(), type());
+    }
+
     //! Cached for saved calculations within each ThermoPhase.
     /*!
      *   For more information on how to use this, see examples within the source

@@ -94,10 +94,18 @@ void IdealSolnGasVPSS::setPressure(doublereal p)
 {
     m_Pcurrent = p;
     updateStandardStateThermo();
-    calcDensity();
+    updateDensity();
 }
 
 void IdealSolnGasVPSS::calcDensity()
+{
+    warn_deprecated("IdealSolnGasVPSS::calcDensity",
+        "Superseded by IdealSolnGasVPSS::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void IdealSolnGasVPSS::updateDensity()
 {
     // Calculate the molarVolume of the solution (m**3 kmol-1)
     if (m_idealGas) {

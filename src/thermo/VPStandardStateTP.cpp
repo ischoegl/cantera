@@ -202,6 +202,9 @@ void VPStandardStateTP::setPressure(doublereal p)
 
 void VPStandardStateTP::calcDensity()
 {
+    warn_deprecated("VPStandardStateTP::calcDensity",
+        "Exception superseded by Phase::updateDensity. "
+        "To be removed after Cantera 2.5. ");
     throw NotImplementedError("VPStandardStateTP::calcDensity");
 }
 
@@ -222,7 +225,7 @@ void VPStandardStateTP::setState_TP(doublereal t, doublereal pres)
     // VPStandardStateTP object. At this point, we haven't touched m_tlast or
     // m_plast, so some calculations may still need to be done at the
     // ThermoPhase object level.
-    calcDensity();
+    updateDensity();
 }
 
 void VPStandardStateTP::installPDSS(size_t k, unique_ptr<PDSS>&& pdss)

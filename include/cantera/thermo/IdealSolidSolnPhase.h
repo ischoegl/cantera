@@ -207,9 +207,15 @@ public:
      * partial molar volumes are equal to the pure species molar volumes. We
      * have additionally specified in this class that the pure species molar
      * volumes are independent of temperature and pressure.
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
      */
     void calcDensity();
 
+protected:
+    virtual void updateDensity();
+
+public:
     /**
      * Overridden setDensity() function is necessary because the density is not
      * an independent variable.

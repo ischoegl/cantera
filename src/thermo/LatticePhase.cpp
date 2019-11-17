@@ -59,20 +59,28 @@ doublereal LatticePhase::cv_mole() const
 
 doublereal LatticePhase::calcDensity()
 {
+    warn_deprecated("LatticePhase::calcDensity",
+        "Superseded by LatticePhase::updateDensity. "
+        "To be removed after Cantera 2.5. ");
     assignDensity(std::max(meanMolecularWeight() * m_site_density, SmallNumber));
     return meanMolecularWeight() * m_site_density;
+}
+
+void LatticePhase::updateDensity()
+{
+    assignDensity(std::max(meanMolecularWeight() * m_site_density, SmallNumber));
 }
 
 void LatticePhase::setPressure(doublereal p)
 {
     m_Pcurrent = p;
-    calcDensity();
+    updateDensity();
 }
 
 void LatticePhase::compositionChanged()
 {
     Phase::compositionChanged();
-    calcDensity();
+    updateDensity();
 }
 
 Units LatticePhase::standardConcentrationUnits() const

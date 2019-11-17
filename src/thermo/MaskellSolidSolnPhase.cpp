@@ -76,6 +76,14 @@ void MaskellSolidSolnPhase::setDensity(const doublereal rho)
 
 void MaskellSolidSolnPhase::calcDensity()
 {
+    warn_deprecated("MaskellSolidSolnPhase::calcDensity",
+        "Superseded by MaskellSolidSolnPhase::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void MaskellSolidSolnPhase::updateDensity()
+{
     const vector_fp& vbar = getStandardVolumes();
 
     vector_fp moleFracs(m_kk);

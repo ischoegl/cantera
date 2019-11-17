@@ -83,6 +83,14 @@ doublereal IdealSolidSolnPhase::cp_mole() const
 
 void IdealSolidSolnPhase::calcDensity()
 {
+    warn_deprecated("IdealSolidSolnPhase::calcDensity",
+        "Superseded by IdealSolidSolnPhase::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void IdealSolidSolnPhase::updateDensity()
+{
     // Calculate the molarVolume of the solution (m**3 kmol-1)
     const doublereal* const dtmp = moleFractdivMMW();
     double invDens = dot(m_speciesMolarVolume.begin(),
@@ -110,7 +118,7 @@ void IdealSolidSolnPhase::setDensity(const doublereal rho)
 void IdealSolidSolnPhase::setPressure(doublereal p)
 {
     m_Pcurrent = p;
-    calcDensity();
+    updateDensity();
 }
 
 void IdealSolidSolnPhase::setMolarDensity(const doublereal n)
@@ -125,7 +133,7 @@ void IdealSolidSolnPhase::setMolarDensity(const doublereal n)
 void IdealSolidSolnPhase::compositionChanged()
 {
     Phase::compositionChanged();
-    calcDensity();
+    updateDensity();
 }
 
 // Chemical Potentials and Activities
@@ -403,7 +411,7 @@ bool IdealSolidSolnPhase::addSpecies(shared_ptr<Species> spec)
             throw CanteraError("IdealSolidSolnPhase::addSpecies",
                 "Molar volume not specified for species '{}'", spec->name);
         }
-        calcDensity();
+        updateDensity();
     }
     return added;
 }

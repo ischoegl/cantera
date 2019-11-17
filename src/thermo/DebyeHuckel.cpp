@@ -105,6 +105,14 @@ doublereal DebyeHuckel::cp_mole() const
 
 void DebyeHuckel::calcDensity()
 {
+    warn_deprecated("DebyeHuckel::calcDensity",
+        "Superseded by DebyeHuckel::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void DebyeHuckel::updateDensity()
+{
     if (m_waterSS) {
         // Store the internal density of the water SS. Note, we would have to do
         // this for all other species if they had pressure dependent properties.

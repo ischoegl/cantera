@@ -185,6 +185,8 @@ protected:
      * volumes are independent of temperature and pressure.
      *
      * NOTE: This function is not a member of the ThermoPhase base class.
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
      */
     virtual void calcDensity();
 

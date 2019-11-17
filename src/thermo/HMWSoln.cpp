@@ -227,6 +227,14 @@ doublereal HMWSoln::cv_mole() const
 
 void HMWSoln::calcDensity()
 {
+    warn_deprecated("HMWSoln::calcDensity",
+        "Superseded by HMWSoln::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void HMWSoln::updateDensity()
+{
     static const int cacheId = m_cache.getId();
     CachedScalar cached = m_cache.getScalar(cacheId);
     if(cached.validate(temperature(), pressure(), stateMFNumber())) {

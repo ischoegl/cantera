@@ -259,9 +259,15 @@ public:
      * \f]
      *
      * where \f$ \rho_n \f$  is the density of the nth sublattice
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
      */
     doublereal calcDensity();
 
+protected:
+    void updateDensity();
+
+public:
     //! Set the mole fractions to the specified values, and then normalize them
     //! so that they sum to 1.0 for each of the subphases
     /*!

@@ -116,8 +116,12 @@ protected:
      *
      * NOTE: This is a non-virtual function, which is not a member of the
      *       ThermoPhase base class.
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
      */
     void calcDensity();
+
+    virtual void updateDensity();
 
 public:
     /**

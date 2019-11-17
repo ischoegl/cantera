@@ -31,6 +31,14 @@ void GibbsExcessVPSSTP::compositionChanged()
 
 void GibbsExcessVPSSTP::calcDensity()
 {
+    warn_deprecated("GibbsExcessVPSSTP::calcDensity",
+        "Superseded by GibbsExcessVPSSTP::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+void GibbsExcessVPSSTP::updateDensity()
+{
     vector_fp vbar = getPartialMolarVolumesVector();
     doublereal vtotal = 0.0;
     for (size_t i = 0; i < m_kk; i++) {

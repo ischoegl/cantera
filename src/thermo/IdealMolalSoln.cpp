@@ -124,6 +124,14 @@ doublereal IdealMolalSoln::cp_mole() const
 
 void IdealMolalSoln::calcDensity()
 {
+    warn_deprecated("IdealMolalSoln::calcDensity",
+        "Superseded by IdealMolalSoln::updateDensity. "
+        "To be removed after Cantera 2.5. ");
+    updateDensity();
+}
+
+  void IdealMolalSoln::updateDensity()
+{
     getPartialMolarVolumes(m_tmpV.data());
     doublereal dd = meanMolecularWeight() / mean_X(m_tmpV);
     Phase::assignDensity(dd);

@@ -621,7 +621,13 @@ public:
      */
 
 protected:
+    /**
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
+     */
     virtual void calcDensity();
+
+    virtual void updateDensity();
 
 public:
     //! Set the internally stored density (gm/m^3) of the phase.

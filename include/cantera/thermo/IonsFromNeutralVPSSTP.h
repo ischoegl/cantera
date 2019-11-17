@@ -247,8 +247,16 @@ public:
      * @{
      */
 
+    /**
+     * @deprecated To be removed after Cantera 2.5.
+     *             (superseded by updateDensity)
+     */
     virtual void calcDensity();
 
+protected:
+    virtual void updateDensity();
+
+public:
     //! Calculate ion mole fractions from neutral molecule mole fractions.
     /*!
      *  @param mf Dump the mole fractions into this vector.

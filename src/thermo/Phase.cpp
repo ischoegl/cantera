@@ -1039,6 +1039,9 @@ void Phase::setMolecularWeight(const int k, const double mw)
 }
 
 void Phase::compositionChanged() {
+    if (!isCompressible()) {
+        updateDensity();
+    }
     m_stateNum++;
 }
 

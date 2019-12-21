@@ -394,6 +394,9 @@ void Phase::setMoleFractions(const double* const x)
 
     // Calculate the normalized molecular weight
     m_mmw = sum/norm;
+    if (!isCompressible()) {
+        updateDensity();
+    }
     compositionChanged();
 }
 
@@ -403,6 +406,9 @@ void Phase::setMoleFractions_NoNorm(const double* const x)
     scale(x, x + m_kk, m_ym.begin(), 1.0/m_mmw);
     transform(m_ym.begin(), m_ym.begin() + m_kk, m_molwts.begin(),
               m_y.begin(), multiplies<double>());
+    if (!isCompressible()) {
+        updateDensity();
+    }
     compositionChanged();
 }
 
@@ -438,6 +444,9 @@ void Phase::setMassFractions(const double* const y)
     transform(m_y.begin(), m_y.end(), m_rmolwts.begin(),
               m_ym.begin(), multiplies<double>());
     m_mmw = 1.0 / accumulate(m_ym.begin(), m_ym.end(), 0.0);
+    if (!isCompressible()) {
+        updateDensity();
+    }
     compositionChanged();
 }
 
@@ -449,6 +458,9 @@ void Phase::setMassFractions_NoNorm(const double* const y)
               multiplies<double>());
     sum = accumulate(m_ym.begin(), m_ym.end(), 0.0);
     m_mmw = 1.0/sum;
+    if (!isCompressible()) {
+        updateDensity();
+    }
     compositionChanged();
 }
 
@@ -1039,9 +1051,6 @@ void Phase::setMolecularWeight(const int k, const double mw)
 }
 
 void Phase::compositionChanged() {
-    if (!isCompressible()) {
-        updateDensity();
-    }
     m_stateNum++;
 }
 

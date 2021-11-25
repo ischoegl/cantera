@@ -211,7 +211,7 @@ config_options = [
            optimization level.""",
         {
             "cl": "/MD /nologo /D_SCL_SECURE_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS",
-            "icc": "-vec-report0 -diag-disable 1478",
+            "icc": "-diag-disable 1478",
             "clang": "-fcolor-diagnostics",
             "default": "",
         }),

@@ -211,7 +211,7 @@ config_options = [
            optimization level.""",
         {
             "cl": "/MD /nologo /D_SCL_SECURE_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS",
-            "icc": "-diag-disable 1478",
+            "icc": "-diag-disable 1478 -diag-disable 2259",
             "clang": "-fcolor-diagnostics",
             "default": "",
         }),

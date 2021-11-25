@@ -51,6 +51,9 @@ Additional help command options:
 #  --restructured-text ... format configuration as reST
 #  --dev ... add '-dev' to reST output
 #  --output=<fname> ... send output to file (reST only)
+# Additional command options for 'scons build':
+#  --cantera-conf=<other.conf> ... use alternate cantera configuration file;
+#       note that this option will replace the existing 'cantera.conf'
 
 # This f-string is deliberately here to trigger a SyntaxError when
 # SConstruct is parsed by Python 2. This seems to be the most robust
@@ -69,6 +72,7 @@ import platform
 import subprocess
 import re
 import textwrap
+from shutil import copy as sh_copy
 from os.path import join as pjoin
 from pkg_resources import parse_version
 import SCons
@@ -653,6 +657,19 @@ if "help" in COMMAND_LINE_TARGETS:
 # **************************************
 # *** Read user-configurable options ***
 # **************************************
+
+# Alternate cantera configuration file
+AddOption(
+    "--cantera-conf", dest="cantera-conf", nargs=1, type="string",
+    default="cantera.conf", action="store", help="Cantera configuration file")
+cantera_conf = GetOption("cantera-conf")
+if cantera_conf != "cantera.conf":
+    logger.info(f"Using alternate configuration file '{cantera_conf}'")
+    if Path("cantera.conf").is_file():
+        logger.info("Saving existing 'cantera.conf' as 'cantera.conf.bkp'")
+        sh_copy("cantera.conf", "cantera.conf.bkp")
+    # replace cantera.conf
+    sh_copy(cantera_conf, "cantera.conf")
 
 opts = Variables("cantera.conf")
 

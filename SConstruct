@@ -226,8 +226,8 @@ config_options = [
         """Set this to the directory where Cantera libraries should be installed.
            Some distributions (for example, Fedora/RHEL) use 'lib64' instead of 'lib'
            on 64-bit systems or could use some other library directory name instead of
-           'lib', depending on architecture and profile (for example, Gentoo 'libx32' on
-           x32 profile). If the user didn't set the 'libdirname' configuration
+           'lib', depending on architecture and profile (for example, Gentoo 'libx32'
+           on x32 profile). If the user didn't set the 'libdirname' configuration
            variable, set it to the default value 'lib'""",
         "lib", PathVariable.PathAccept),
     EnumOption(
@@ -285,9 +285,9 @@ config_options = [
         "default", ("y", "n", "default")),
     PathOption(
         "FORTRAN",
-        """The Fortran (90) compiler. If unspecified, the builder will look for
-           a compatible compiler (pgfortran, gfortran, ifort, g95) in the 'PATH' environment
-           variable. Used only for compiling the Fortran 90 interface.""",
+        """The Fortran (90) compiler. If unspecified, the builder will look for a
+           compatible compiler (pgfortran, gfortran, ifort, ifx, g95) in the 'PATH'
+           environment variable. Used only for compiling the Fortran 90 interface.""",
         "", PathVariable.PathAccept),
     Option(
         "FORTRANFLAGS",
@@ -319,8 +319,8 @@ config_options = [
         "system_eigen",
         """Select whether to use Eigen from a system installation ('y'), from a
            Git submodule ('n'), or to decide automatically ('default'). If Eigen
-           is not installed directly into a system include directory, for example, it is
-           installed in '/opt/include/eigen3/Eigen', then you will need to add
+           is not installed directly into a system include directory, for example, it
+           is installed in '/opt/include/eigen3/Eigen', then you will need to add
            '/opt/include/eigen3' to 'extra_inc_dirs'.
            """,
         "default", ("default", "y", "n")),
@@ -412,7 +412,7 @@ config_options = [
     BoolOption(
         "use_pch",
         "Use a precompiled-header to speed up compilation",
-        {"icc": False, "default": True}),
+        {"icc": False, "icx": False, "default": True}),
     Option(
         "pch_flags",
         "Compiler flags when using precompiled-header.",
@@ -465,7 +465,11 @@ config_options = [
         """Additional compiler flags passed to the C/C++ compiler to enable
            extra warnings. Used only when compiling source code that is part
            of Cantera (for example, excluding code in the 'ext' directory).""",
-        {"cl": "/W3", "icc": "-Wcheck", "default": "-Wall"}),
+        {
+            "cl": "/W3",
+            "icc": "-Wcheck",
+            "default": "-Wall",
+        }),
     Option(
         "extra_inc_dirs",
         """Additional directories to search for header files, with multiple
@@ -527,6 +531,7 @@ config_options = [
         {
             "cl": "/openmp",
             "icc": "openmp",
+            "icx": "-qopenmp",
             "apple-clang": "-Xpreprocessor -fopenmp",
             "default": "-fopenmp",
         }),
@@ -785,6 +790,10 @@ elif env["CC"] == "cl": # Visual Studio
 
 elif "icc" in env.subst("$CC"):
     config.select("icc")
+
+elif "icx" in env.subst("$CC"):
+    logger.error("Compiler 'icx' is untested. Aborting.")
+    sys.exit(1)
 
 elif "clang" in env.subst("$CC"):
     config.select("clang")
@@ -1326,7 +1335,7 @@ if env['f90_interface'] in ('y','default'):
     if env['FORTRAN']:
         foundF90 = check_fortran(env['FORTRAN'], True)
 
-    for compiler in ('pgfortran', 'gfortran', 'ifort', 'g95'):
+    for compiler in ("pgfortran", "gfortran", "ifort", "ifx", "g95"):
         if foundF90:
             break
         foundF90 = check_fortran(compiler)
@@ -1351,6 +1360,8 @@ elif 'g95' in env['FORTRAN']:
     env['FORTRANMODDIRPREFIX'] = '-fmod='
 elif 'ifort' in env['FORTRAN']:
     env['FORTRANMODDIRPREFIX'] = '-module '
+elif "ifx" in env["FORTRAN"]:
+    env["FORTRANMODDIRPREFIX"] = "-module "
 
 set_fortran("{}", env["FORTRAN"])
 set_fortran("SH{}", env["FORTRAN"])

@@ -99,7 +99,11 @@ TEST_F(cubicSolver_Test, solve_cubic)
     //Find cubic roots
     nSolnValues = peng_robinson_phase->solveCubic(Tcrit, pCrit, a_coeff, b_coeff, alpha * a_coeff, Vroot);
     EXPECT_NEAR(expected_result[2], Vroot[0], 1.e-6);
-    EXPECT_NEAR(nSolnValues, -2, 1.e-6);
+    if (nSolnValues < 0) {
+        EXPECT_NEAR(nSolnValues, -2, 1.e-6);
+    } else {
+        EXPECT_NEAR(nSolnValues, 2, 1.e-6);
+    }
 
     // Obtain pressure using EoS and compare against the given pressure value
     set_r(1.0);

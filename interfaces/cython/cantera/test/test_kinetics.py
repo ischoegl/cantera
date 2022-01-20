@@ -476,10 +476,10 @@ class KineticsRepeatability(utilities.CanteraTest):
                    "at T = 5000.0",
                    "at T = 10000.0",
                    "Sticking coefficient is greater than 1 for reaction",
-                   "CanteraError thrown by InterfaceReaction::validate:",
+                   "CanteraError thrown by InterfaceReaction2::validate:",
                    )
         if not ct.debug_mode_enabled():
-            err_msg += ("CanteraError thrown by BlowersMaselInterfaceReaction::validate:",)
+            err_msg += ("CanteraError thrown by BlowersMaselInterfaceReaction2::validate:",)
 
         ct.make_warnings_fatal()
         for err in err_msg:

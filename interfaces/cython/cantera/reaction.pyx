@@ -2476,7 +2476,7 @@ cdef class InterfaceReaction(ElementaryReaction):
         and the activation energy [J/kmol], respectively.
         """
         def __get__(self):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             deps = {}
             cdef pair[string,CxxCoverageDependency] item
             for item in r.coverage_deps:
@@ -2484,7 +2484,7 @@ cdef class InterfaceReaction(ElementaryReaction):
                                            item.second.E * gas_constant)
             return deps
         def __set__(self, deps):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             r.coverage_deps.clear()
             cdef str species
             for species, D in deps.items():
@@ -2498,10 +2498,10 @@ cdef class InterfaceReaction(ElementaryReaction):
         constant.
         """
         def __get__(self):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             return r.is_sticking_coefficient
         def __set__(self, stick):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             r.is_sticking_coefficient = stick
 
     property use_motz_wise_correction:
@@ -2512,10 +2512,10 @@ cdef class InterfaceReaction(ElementaryReaction):
         coefficient.
         """
         def __get__(self):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             return r.use_motz_wise_correction
         def __set__(self, mw):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             r.use_motz_wise_correction = mw
 
     property sticking_species:
@@ -2525,10 +2525,10 @@ cdef class InterfaceReaction(ElementaryReaction):
         ambiguous.
         """
         def __get__(self):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             return pystr(r.sticking_species)
         def __set__(self, species):
-            cdef CxxInterfaceReaction* r = <CxxInterfaceReaction*>self.reaction
+            cdef CxxInterfaceReaction2* r = <CxxInterfaceReaction2*>self.reaction
             r.sticking_species = stringify(species)
 
 
@@ -2550,15 +2550,15 @@ cdef class BlowersMaselInterfaceReaction(Reaction):
         elif equation:
             self.reaction.setEquation(stringify(equation))
 
-    cdef CxxBlowersMaselInterfaceReaction* cxx_object2(self):
-        return <CxxBlowersMaselInterfaceReaction*>self.reaction
+    cdef CxxBlowersMaselInterfaceReaction2* cxx_object2(self):
+        return <CxxBlowersMaselInterfaceReaction2*>self.reaction
 
     property rate:
         """ Get/Set the `BlowersMaselRate` rate coefficients for this reaction. """
         def __get__(self):
             return wrapBlowersMasel(&(self.cxx_object2().rate), self)
         def __set__(self, BlowersMasel rate):
-            cdef CxxBlowersMaselInterfaceReaction* r = self.cxx_object2()
+            cdef CxxBlowersMaselInterfaceReaction2* r = self.cxx_object2()
             r.rate = deref(rate.rate)
 
     property allow_negative_pre_exponential_factor:
@@ -2581,7 +2581,7 @@ cdef class BlowersMaselInterfaceReaction(Reaction):
         and the activation energy [J/kmol], respectively.
         """
         def __get__(self):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             deps = {}
             cdef pair[string,CxxCoverageDependency] item
             for item in r.coverage_deps:
@@ -2589,7 +2589,7 @@ cdef class BlowersMaselInterfaceReaction(Reaction):
                                            item.second.E * gas_constant)
             return deps
         def __set__(self, deps):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             r.coverage_deps.clear()
             cdef str species
             for species, D in deps.items():
@@ -2603,10 +2603,10 @@ cdef class BlowersMaselInterfaceReaction(Reaction):
         constant.
         """
         def __get__(self):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             return r.is_sticking_coefficient
         def __set__(self, stick):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             r.is_sticking_coefficient = stick
 
     property use_motz_wise_correction:
@@ -2617,10 +2617,10 @@ cdef class BlowersMaselInterfaceReaction(Reaction):
         coefficient.
         """
         def __get__(self):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             return r.use_motz_wise_correction
         def __set__(self, mw):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             r.use_motz_wise_correction = mw
 
     property sticking_species:
@@ -2630,10 +2630,10 @@ cdef class BlowersMaselInterfaceReaction(Reaction):
         ambiguous.
         """
         def __get__(self):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             return pystr(r.sticking_species)
         def __set__(self, species):
-            cdef CxxBlowersMaselInterfaceReaction* r = <CxxBlowersMaselInterfaceReaction*>self.reaction
+            cdef CxxBlowersMaselInterfaceReaction2* r = <CxxBlowersMaselInterfaceReaction2*>self.reaction
             r.sticking_species = stringify(species)
 
 

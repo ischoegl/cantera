@@ -132,7 +132,7 @@ class ReactionRateTests:
     def setUpClass(cls):
         utilities.CanteraTest.setUpClass()
         ct.use_legacy_rate_constants(False)
-        cls.gas = ct.Solution("kineticsfromscratch.yaml")
+        cls.soln = ct.Solution("kineticsfromscratch.yaml")
 
         # suppress user warning (e.g. temperature derivative of Blowers-Masel)
         cls.warnings_suppressed = ct.warnings_suppressed()
@@ -144,9 +144,9 @@ class ReactionRateTests:
             ct.make_warnings_fatal()
 
     def setUp(self):
-        self.gas.X = "H2:0.1, H2O:0.2, O2:0.7, O:1e-4, OH:1e-5, H:2e-5, H2O2:1e-7"
-        self.gas.TP = 900, 2 * ct.one_atm
-        self.gas.Te = 2300
+        self.soln.X = "H2:0.1, H2O:0.2, O2:0.7, O:1e-4, OH:1e-5, H:2e-5, H2O2:1e-7"
+        self.soln.TP = 900, 2 * ct.one_atm
+        self.soln.Te = 2300
 
     def from_parts(self):
         # create reaction rate object from parts
@@ -174,7 +174,7 @@ class ReactionRateTests:
 
     def eval(self, rate):
         # evaluate rate expression
-        return rate(self.gas.T)
+        return rate(self.soln.T)
 
     def check_rate(self, rate):
         # check rates
@@ -182,7 +182,7 @@ class ReactionRateTests:
         self.assertIn(self._cls.__name__, f"{rate}")
         value = self.eval(rate)
         self.assertIsFinite(value)
-        self.assertNear(value, self.gas.forward_rate_constants[self._index])
+        self.assertNear(value, self.soln.forward_rate_constants[self._index])
 
     def test_from_parts(self):
         # check constructors (from argument list)
@@ -225,28 +225,28 @@ class ReactionRateTests:
 
     def test_derivative_ddT(self):
         # check temperature derivative against numerical derivative
-        deltaT = self.gas.derivative_settings["rtol-delta"]
-        deltaT *= self.gas.T
+        deltaT = self.soln.derivative_settings["rtol-delta"]
+        deltaT *= self.soln.T
         rate = self.from_yaml()
         k0 = self.eval(rate)
 
         # derivative at constant pressure
-        dcdt = - self.gas.density_mole / self.gas.T
-        drate = self.gas.forward_rate_constants_ddT
-        drate += self.gas.forward_rate_constants_ddC * dcdt
-        self.gas.TP = self.gas.T + deltaT, self.gas.P
+        dcdt = - self.soln.density_mole / self.soln.T
+        drate = self.soln.forward_rate_constants_ddT
+        drate += self.soln.forward_rate_constants_ddC * dcdt
+        self.soln.TP = self.soln.T + deltaT, self.soln.P
         k1 = self.eval(rate)
         self.assertNear((k1 - k0) / deltaT, drate[self._index], 1e-6)
 
     def test_derivative_ddP(self):
         # check pressure derivative against numerical derivative
-        deltaP = self.gas.derivative_settings["rtol-delta"]
-        deltaP *= self.gas.P
+        deltaP = self.soln.derivative_settings["rtol-delta"]
+        deltaP *= self.soln.P
         rate = self.from_yaml()
         k0 = self.eval(rate)
 
-        drate = self.gas.forward_rate_constants_ddP
-        self.gas.TP = self.gas.T, self.gas.P + deltaP
+        drate = self.soln.forward_rate_constants_ddP
+        self.soln.TP = self.soln.T, self.soln.P + deltaP
         k1 = self.eval(rate)
         self.assertNear((k1 - k0) / deltaP, drate[self._index], 1e-6)
 
@@ -285,7 +285,7 @@ class TestArrheniusRate(ReactionRateTests, utilities.CanteraTest):
         # check exact derivative against analytical and numerical derivatives
         rate = self.from_parts()
         T = 1000.
-        self.gas.TP = T, self.gas.P
+        self.soln.TP = T, self.soln.P
 
         R = ct.gas_constant
         Ea = rate.activation_energy
@@ -296,7 +296,7 @@ class TestArrheniusRate(ReactionRateTests, utilities.CanteraTest):
 
         scaled_ddT = (Ea / R / T + b) / T
 
-        dkdT = self.gas.forward_rate_constants_ddT[self._index]
+        dkdT = self.soln.forward_rate_constants_ddT[self._index]
         self.assertNear(dkdT, k0 * scaled_ddT) # exact
 
         dT = 1.e-6
@@ -318,8 +318,8 @@ class TestBlowersMaselRate(ReactionRateTests, utilities.CanteraTest):
         """
 
     def eval(self, rate):
-        delta_enthalpy = self.gas.delta_enthalpy[self._index]
-        return rate(self.gas.T, delta_enthalpy)
+        delta_enthalpy = self.soln.delta_enthalpy[self._index]
+        return rate(self.soln.T, delta_enthalpy)
 
     def test_from_parts(self):
         rate = self.from_parts()
@@ -356,7 +356,7 @@ class TestTwoTempPlasmaRate(ReactionRateTests, utilities.CanteraTest):
 
     def eval(self, rate):
         # check evaluation as a function of temperature and electron temperature
-        return rate(self.gas.T, self.gas.Te)
+        return rate(self.soln.T, self.soln.Te)
 
     def test_from_parts(self):
         rate = self.from_parts()
@@ -389,7 +389,7 @@ class TestTwoTempPlasmaRateShort(ReactionRateTests, utilities.CanteraTest):
 
     def eval(self, rate):
         # check evaluation as a function of temperature and electron temperature
-        return rate(self.gas.T, self.gas.Te)
+        return rate(self.soln.T, self.soln.Te)
 
     def test_from_parts(self):
         rate = self.from_parts()
@@ -413,8 +413,8 @@ class FalloffRateTests(ReactionRateTests):
         cls._parts["high"] = ct.Arrhenius(param["A"], param["b"], param["Ea"])
 
     def eval(self, rate):
-        concm = self.gas.third_body_concentrations[self._index]
-        return rate(self.gas.T, concm)
+        concm = self.soln.third_body_concentrations[self._index]
+        return rate(self.soln.T, concm)
 
     def test_data(self):
         rate = self.from_parts()
@@ -422,37 +422,37 @@ class FalloffRateTests(ReactionRateTests):
             rate.falloff_coeffs = np.random.rand(n)
 
     def test_derivative_ddT(self):
-        pert = self.gas.derivative_settings["rtol-delta"]
-        deltaT = self.gas.T * pert
-        TP = self.gas.TP
+        pert = self.soln.derivative_settings["rtol-delta"]
+        deltaT = self.soln.T * pert
+        TP = self.soln.TP
         rate = self.from_yaml()
         k0 = self.eval(rate)
 
         # derivative at constant volume
-        drate = self.gas.forward_rate_constants_ddT
-        self.gas.TP = self.gas.T * (1 + pert), self.gas.P * (1 + pert)
+        drate = self.soln.forward_rate_constants_ddT
+        self.soln.TP = self.soln.T * (1 + pert), self.soln.P * (1 + pert)
         k1 = self.eval(rate)
         self.assertNear((k1 - k0) / deltaT, drate[self._index], 1e-6)
 
         # derivative at constant pressure
-        self.gas.TP = TP
-        dcdt = - self.gas.density_mole / self.gas.T
-        drate += self.gas.forward_rate_constants_ddC * dcdt
-        self.gas.TP = self.gas.T * (1 + pert), self.gas.P
+        self.soln.TP = TP
+        dcdt = - self.soln.density_mole / self.soln.T
+        drate += self.soln.forward_rate_constants_ddC * dcdt
+        self.soln.TP = self.soln.T * (1 + pert), self.soln.P
         k1 = self.eval(rate)
         self.assertNear((k1 - k0) / deltaT, drate[self._index], 1e-6)
 
     def test_derivative_ddP(self):
-        pert = self.gas.derivative_settings["rtol-delta"]
-        deltaP = self.gas.P * pert
+        pert = self.soln.derivative_settings["rtol-delta"]
+        deltaP = self.soln.P * pert
         rate = self.from_yaml()
         k0 = self.eval(rate)
 
         # derivative at constant temperature
-        drate = self.gas.forward_rate_constants_ddP
-        dcdp = self.gas.density_mole / self.gas.P
-        drate += self.gas.forward_rate_constants_ddC * dcdp
-        self.gas.TP = self.gas.T, self.gas.P + deltaP
+        drate = self.soln.forward_rate_constants_ddP
+        dcdp = self.soln.density_mole / self.soln.P
+        drate += self.soln.forward_rate_constants_ddC * dcdp
+        self.soln.TP = self.soln.T, self.soln.P + deltaP
         k1 = self.eval(rate)
         self.assertNear((k1 - k0) / deltaP, drate[self._index], 1e-6)
 
@@ -574,7 +574,7 @@ class TestPlogRate(ReactionRateTests, utilities.CanteraTest):
 
     def eval(self, rate):
         # check evaluation as a function of temperature and pressure
-        return rate(self.gas.T, self.gas.P)
+        return rate(self.soln.T, self.soln.P)
 
     def test_get_rates(self):
         # test getter for property rates
@@ -659,7 +659,7 @@ class TestChebyshevRate(ReactionRateTests, utilities.CanteraTest):
 
     def eval(self, rate):
         # check evaluation as a function of temperature and pressure
-        return rate(self.gas.T, self.gas.P)
+        return rate(self.soln.T, self.soln.P)
 
     def test_from_parts(self):
         rate = self.from_parts()
@@ -696,28 +696,28 @@ class ReactionTests:
     @classmethod
     def setUpClass(cls):
         utilities.CanteraTest.setUpClass()
-        cls.gas = ct.Solution("kineticsfromscratch.yaml", transport_model=None)
-        cls.species = cls.gas.species()
+        cls.soln = ct.Solution("kineticsfromscratch.yaml", transport_model=None)
+        cls.species = cls.soln.species()
 
     def setUp(self):
-        self.gas.X = "H2:0.1, H2O:0.2, O2:0.7, O:1e-4, OH:1e-5, H:2e-5"
-        self.gas.TP = 900, 2*ct.one_atm
+        self.soln.X = "H2:0.1, H2O:0.2, O2:0.7, O:1e-4, OH:1e-5, H:2e-5"
+        self.soln.TP = 900, 2*ct.one_atm
 
     def eval_rate(self, rate):
         # evaluate rate expression
-        return rate(self.gas.T)
+        return rate(self.soln.T)
 
     def from_yaml(self, deprecated=False):
         # create reaction object from yaml
         if deprecated:
             with self.assertWarnsRegex(DeprecationWarning, "is renamed to 'from_yaml'"):
-                return ct.Reaction.fromYaml(self._yaml, kinetics=self.gas)
-        return ct.Reaction.from_yaml(self._yaml, kinetics=self.gas)
+                return ct.Reaction.fromYaml(self._yaml, kinetics=self.soln)
+        return ct.Reaction.from_yaml(self._yaml, kinetics=self.soln)
 
     def from_dict(self):
         # create reaction rate object from input data
         input_data = self.from_yaml().input_data
-        return ct.Reaction.from_dict(input_data, kinetics=self.gas)
+        return ct.Reaction.from_dict(input_data, kinetics=self.soln)
 
     def from_empty(self):
         # create reaction object with uninitialized rate
@@ -727,7 +727,7 @@ class ReactionTests:
             # Create an "empty" rate of the correct type for merged reaction types where
             # the only way they are distinguished is by the rate type
             rate=self._rate_cls()
-        return self._cls(equation=self._equation, rate=rate, kinetics=self.gas,
+        return self._cls(equation=self._equation, rate=rate, kinetics=self.soln,
                          legacy=self._legacy, **self._kwargs)
 
     def from_rate(self, rate):
@@ -736,14 +736,14 @@ class ReactionTests:
         if rate is None and self._rate is None:
             # this does not work when no specialized reaction class exists
             pytest.skip("Creation from dictionary is not supported")
-        return self._cls(equation=self._equation, rate=rate, kinetics=self.gas,
+        return self._cls(equation=self._equation, rate=rate, kinetics=self.soln,
                          legacy=self._legacy, **self._kwargs)
 
     def from_parts(self):
         # create reaction rate object from parts
         if self._rate_obj is None:
             pytest.skip("Legacy: rate object is not defined [2]")
-        orig = self.gas.reaction(self._index)
+        orig = self.soln.reaction(self._index)
         if self._legacy:
             rxn = self._cls(orig.reactants, orig.products, legacy=self._legacy)
             rxn.rate = self._rate_obj
@@ -755,16 +755,16 @@ class ReactionTests:
 
     def check_rate(self, rate_obj):
         if self._legacy:
-            rate = rate_obj(self.gas.T)
+            rate = rate_obj(self.soln.T)
         else:
             rate = self.eval_rate(rate_obj)
-        self.assertNear(rate, self.gas.forward_rate_constants[self._index])
+        self.assertNear(rate, self.soln.forward_rate_constants[self._index])
 
     def check_rxn(self, rxn, check_legacy=True):
         # helper function that checks reaction configuration
         ix = self._index
-        self.assertEqual(rxn.reactants, self.gas.reaction(ix).reactants)
-        self.assertEqual(rxn.products, self.gas.reaction(ix).products)
+        self.assertEqual(rxn.reactants, self.soln.reaction(ix).reactants)
+        self.assertEqual(rxn.products, self.soln.reaction(ix).products)
         if check_legacy:
             self.assertEqual(rxn.uses_legacy, self._rxn_type.endswith("-legacy"))
             self.assertEqual(rxn.uses_legacy, self._legacy)
@@ -777,7 +777,7 @@ class ReactionTests:
             self.check_rate(rxn.rate)
         gas2 = ct.Solution(thermo="IdealGas", kinetics="GasKinetics",
                            species=self.species, reactions=[rxn])
-        gas2.TPX = self.gas.TPX
+        gas2.TPX = self.soln.TPX
         self.check_solution(gas2, check_legacy)
 
     def check_solution(self, gas2, check_legacy=True):
@@ -786,9 +786,9 @@ class ReactionTests:
         if check_legacy:
             self.assertEqual(gas2.reaction_type_str(0), self._rxn_type)
         self.assertNear(gas2.forward_rate_constants[0],
-                        self.gas.forward_rate_constants[ix])
+                        self.soln.forward_rate_constants[ix])
         self.assertNear(gas2.net_rates_of_progress[0],
-                        self.gas.net_rates_of_progress[ix])
+                        self.soln.net_rates_of_progress[ix])
 
     def test_rate(self):
         # check consistency of reaction rate and forward rate constant
@@ -826,7 +826,7 @@ class ReactionTests:
             rxn = self.from_rate(self._rate_obj)
         gas2 = ct.Solution(thermo="IdealGas", kinetics="GasKinetics",
                            species=self.species, reactions=[])
-        gas2.TPX = self.gas.TPX
+        gas2.TPX = self.soln.TPX
         rxn = self.from_rate(self._rate_obj)
         gas2.add_reaction(rxn)
         self.check_solution(gas2)
@@ -848,13 +848,13 @@ class ReactionTests:
             return
         rxn = self.from_empty()
         if self._legacy:
-            self.assertNear(rxn.rate(self.gas.T), 0.)
+            self.assertNear(rxn.rate(self.soln.T), 0.)
         else:
             self.assertIsNaN(self.eval_rate(rxn.rate))
 
         gas2 = ct.Solution(thermo="IdealGas", kinetics="GasKinetics",
                            species=self.species, reactions=[rxn])
-        gas2.TPX = self.gas.TPX
+        gas2.TPX = self.soln.TPX
         if self._legacy:
             self.assertNear(gas2.forward_rate_constants[0], 0.)
             self.assertNear(gas2.net_rates_of_progress[0], 0.)
@@ -1011,7 +1011,7 @@ class TestThreeBody2(TestElementary2):
 
     def test_efficiencies(self):
         # check efficiencies
-        rxn = self._cls(equation=self._equation, rate=self._rate_obj, kinetics=self.gas,
+        rxn = self._cls(equation=self._equation, rate=self._rate_obj, kinetics=self.soln,
                         legacy=self._legacy, **self._kwargs)
 
         self.assertEqual(rxn.efficiencies, self._kwargs["efficiencies"])
@@ -1078,7 +1078,7 @@ class TestTwoTempPlasma(ReactionTests, utilities.CanteraTest):
         return rxn
 
     def eval_rate(self, rate):
-        return rate(self.gas.T, self.gas.Te)
+        return rate(self.soln.T, self.soln.Te)
 
     def test_reversible(self):
         rxn = super().from_parts()
@@ -1103,8 +1103,8 @@ class TestBlowersMasel(ReactionTests, utilities.CanteraTest):
         """
 
     def eval_rate(self, rate):
-        delta_enthalpy = self.gas.delta_enthalpy[self._index]
-        return rate(self.gas.T, delta_enthalpy)
+        delta_enthalpy = self.soln.delta_enthalpy[self._index]
+        return rate(self.soln.T, delta_enthalpy)
 
 
 class TestTroe2(ReactionTests, utilities.CanteraTest):
@@ -1162,8 +1162,8 @@ class TestTroe(ReactionTests, utilities.CanteraTest):
         cls._rate_obj = ct.TroeRate(low=low, high=high, falloff_coeffs=data)
 
     def eval_rate(self, rate):
-        concm = self.gas.third_body_concentrations[self._index]
-        return rate(self.gas.T, concm)
+        concm = self.soln.third_body_concentrations[self._index]
+        return rate(self.soln.T, concm)
 
     def from_parts(self):
         rxn = ReactionTests.from_parts(self)
@@ -1205,8 +1205,8 @@ class TestLindemann(ReactionTests, utilities.CanteraTest):
         cls._rate_obj = ct.LindemannRate(low=low, high=high, falloff_coeffs=[])
 
     def eval_rate(self, rate):
-        concm = self.gas.third_body_concentrations[self._index]
-        return rate(self.gas.T, concm)
+        concm = self.soln.third_body_concentrations[self._index]
+        return rate(self.soln.T, concm)
 
     def from_parts(self):
         rxn = ReactionTests.from_parts(self)
@@ -1264,8 +1264,8 @@ class TestChemicallyActivated(ReactionTests, utilities.CanteraTest):
         cls._rate_obj.chemically_activated = True
 
     def eval_rate(self, rate):
-        concm = self.gas.third_body_concentrations[self._index]
-        return rate(self.gas.T, concm)
+        concm = self.soln.third_body_concentrations[self._index]
+        return rate(self.soln.T, concm)
 
 
 class TestPlog2(ReactionTests, utilities.CanteraTest):
@@ -1359,7 +1359,7 @@ class TestPlog(TestPlog2):
         cls._rate_obj = ct.ReactionRate.from_dict(cls._rate)
 
     def eval_rate(self, rate):
-        return rate(self.gas.T, self.gas.P)
+        return rate(self.soln.T, self.soln.P)
 
 
 class TestChebyshev2(ReactionTests, utilities.CanteraTest):
@@ -1424,7 +1424,7 @@ class TestChebyshev(TestChebyshev2):
         """
 
     def eval_rate(self, rate):
-        return rate(self.gas.T, self.gas.P)
+        return rate(self.soln.T, self.soln.P)
 
 
 class TestCustom(ReactionTests, utilities.CanteraTest):
@@ -1465,7 +1465,7 @@ class TestCustom(ReactionTests, utilities.CanteraTest):
         # check result of rate expression
         f = ct.Func1(self._rate)
         rate = ct.CustomRate(f)
-        self.assertNear(rate(self.gas.T), self.gas.forward_rate_constants[self._index])
+        self.assertNear(rate(self.soln.T), self.soln.forward_rate_constants[self._index])
 
     def test_custom_lambda(self):
         # check instantiation from keywords / rate provided as lambda function

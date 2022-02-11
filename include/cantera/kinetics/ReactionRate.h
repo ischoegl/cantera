@@ -149,6 +149,56 @@ public:
         return _evaluator().evalSingle(*this);
     }
 
+    //! Evaluate reaction rate based on temperature and an extra vector parameter.
+    //! Specific rate parameterizations may require additional parameters, which
+    //! are specific to the derived ReactionRate object.
+    //! @param T  temperature [K]
+    //! @param extra  extra vector parameter used by parameterization
+    //! Used in conjunction with MultiRateBase::evalSingle / ReactionRate::eval.
+    //! This method allows for testing of a reaction rate expression outside of
+    //! Kinetics reaction rate evaluators.
+    //! @warning This method is an experimental part of the %Cantera API and
+    //!     may be changed or removed without notice.
+    double eval(double T, const std::vector<double>& extra) {
+        _evaluator().update(T, extra);
+        return _evaluator().evalSingle(*this);
+    }
+
+    //! Evaluate reaction rate based on temperature and two extra parameters.
+    //! Specific rate parameterizations may require additional parameters, which
+    //! are specific to the derived ReactionRate object.
+    //! @param T  temperature [K]
+    //! @param extra1  extra scalar parameter used by parameterization
+    //! @param extra2  extra vector parameter used by parameterization
+    //! Used in conjunction with MultiRateBase::evalSingle / ReactionRate::eval.
+    //! This method allows for testing of a reaction rate expression outside of
+    //! Kinetics reaction rate evaluators.
+    //! @warning This method is an experimental part of the %Cantera API and
+    //!     may be changed or removed without notice.
+    double eval(double T, double extra1, const std::vector<double>& extra2) {
+        _evaluator().update(T, extra1, extra2);
+        return _evaluator().evalSingle(*this);
+    }
+
+    //! Evaluate reaction rate based on temperature and three extra parameters.
+    //! Specific rate parameterizations may require additional parameters, which
+    //! are specific to the derived ReactionRate object.
+    //! @param T  temperature [K]
+    //! @param extra1  extra scalar parameter used by parameterization
+    //! @param extra2  extra scalar parameter used by parameterization
+    //! @param extra3  extra vector parameter used by parameterization
+    //! Used in conjunction with MultiRateBase::evalSingle / ReactionRate::eval.
+    //! This method allows for testing of a reaction rate expression outside of
+    //! Kinetics reaction rate evaluators.
+    //! @warning This method is an experimental part of the %Cantera API and
+    //!     may be changed or removed without notice.
+    double eval(
+        double T, double extra1, double extra2, const std::vector<double>& extra3)
+    {
+        _evaluator().update(T, extra1, extra2, extra3);
+        return _evaluator().evalSingle(*this);
+    }
+
 protected:
     //! Get parameters
     //! @param node  AnyMap containing rate information

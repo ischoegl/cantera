@@ -148,9 +148,12 @@ class ReactionRateTests:
         self.soln.TP = 900, 2 * ct.one_atm
         self.soln.Te = 2300
 
+    def finalize(self, rate):
+        return rate
+
     def from_parts(self):
         # create reaction rate object from parts
-        return self._cls(**self._parts)
+        return self.finalize(self._cls(**self._parts))
 
     def from_input(self, input=None):
         # create reaction rate object from input_data
@@ -158,11 +161,11 @@ class ReactionRateTests:
             input = self._input
         else:
             self.assertIsInstance(input, dict)
-        return self._cls(input_data=input)
+        return self.finalize(self._cls(input_data=input))
 
     def from_yaml(self):
         # create reaction rate object from yaml
-        return ct.ReactionRate.from_yaml(self._yaml)
+        return self.finalize(ct.ReactionRate.from_yaml(self._yaml))
 
     def from_dict(self, input=None):
         # create reaction rate object from dictionary
@@ -170,7 +173,7 @@ class ReactionRateTests:
             input = self.from_yaml().input_data
         else:
             self.assertIsInstance(input, dict)
-        return ct.ReactionRate.from_dict(input)
+        return self.finalize(ct.ReactionRate.from_dict(input))
 
     def eval(self, rate):
         # evaluate rate expression
@@ -214,7 +217,7 @@ class ReactionRateTests:
         rate0 = self.from_yaml()
         input_data = rate0.input_data
         rate1 = self.from_dict(input_data)
-        self.assertNear(self.eval(rate0), self.eval(rate1))
+        self.check_rate(rate1)
 
     def test_with_units(self):
         # test custom units
@@ -674,6 +677,217 @@ class TestChebyshevRate(ReactionRateTests, utilities.CanteraTest):
         self.assertEqual(rate.n_temperature, rate.data.shape[0])
 
 
+class SurfaceReactionRateTests(ReactionRateTests):
+    # test suite for surface reaction rate expressions
+
+    _sticking_pars = None # sticking parameters
+
+    @classmethod
+    def setUpClass(cls):
+        utilities.CanteraTest.setUpClass()
+        ct.use_legacy_rate_constants(False)
+        cls.soln = ct.Interface("kineticsfromscratch.yaml", "Pt_surf", transport_model=None)
+        cls.gas = cls.soln.adjacent["ohmech"]
+
+        # suppress user warning (e.g. temperature derivative of Blowers-Masel)
+        cls.warnings_suppressed = ct.warnings_suppressed()
+        ct.suppress_warnings()
+
+    def setUp(self):
+        self.soln.TP = 900, ct.one_atm
+        self.gas.X = "H2:0.05, H2O:0.01, O:1e-4, OH: 1e5, H:2e-5, O2:0.21, AR:0.79"
+        self.gas.TP = 900, ct.one_atm
+
+    def eval(self, rate, species=True):
+        # evaluate rate expression
+        if species:
+            rate.set_species(self.soln.species_names)
+        if self._sticking_pars is None:
+            return rate(self.soln.T, self.soln.coverages)
+        else:
+            return rate(self.soln.T, self.soln.site_density, self.soln.coverages)
+
+    def from_parts(self):
+        rate = super().from_parts()
+        if "coverage-dependencies" in self._input:
+            rate.coverage_dependencies = self._input["coverage-dependencies"]
+        if self._sticking_pars is not None:
+            rate.motz_wise_correction = "Motz-Wise" in self._input
+            rate.stick_coefficients = self._sticking_pars
+        return rate
+
+    def finalize(self, rate):
+        if self._sticking_pars is not None:
+            rate.stick_coefficients = self._sticking_pars
+        return rate
+
+    def test_no_species(self):
+        # evaluate rate expression without providing species
+        rate = self.from_yaml()
+        value = self.eval(rate, species=False)
+        if "coverage-dependencies" in self._input:
+            self.assertIsNaN(value)
+        else:
+            self.assertIsFinite(value)
+
+    def test_from_parts(self):
+        rate = self.from_parts()
+        self.assertEqual(self._parts["A"], rate.pre_exponential_factor)
+        self.assertEqual(self._parts["b"], rate.temperature_exponent)
+        if "Ea" in self._parts:
+            self.assertNear(self._parts["Ea"], rate.activation_energy)
+        else:
+            self.assertNear(self._parts["Ea0"], rate.intrinsic_activation_energy)
+            self.assertNear(self._parts["w"], rate.bond_energy)
+        self.check_rate(rate)
+
+    @pytest.mark.skip("Derivative is not supported")
+    def test_derivative_ddT(self):
+        pass
+
+    @pytest.mark.skip("Derivative is not supported")
+    def test_derivative_ddP(self):
+        pass
+
+
+class TestSurfaceArrheniusRate(SurfaceReactionRateTests, utilities.CanteraTest):
+    # test Arrhenius-interface rate expressions without coverage dependency
+
+    _cls = ct.ArrheniusInterfaceRate
+    _type = "Arrhenius-interface"
+    _index = 0
+    _input = {"rate-constant": {"A": 3.7e+20, "b": 0, "Ea": 1.15e7}}
+    _parts = _input["rate-constant"]
+    _yaml = """
+        rate-constant: {A: 3.7e+20, b: 0, Ea: 11500 J/mol}
+        type: Arrhenius-interface
+        """
+
+
+class TestArrheniusInterfaceRate(SurfaceReactionRateTests, utilities.CanteraTest):
+    # test Arrhenius-interface rate expressions with coverage dependency
+
+    _cls = ct.ArrheniusInterfaceRate
+    _type = "Arrhenius-interface"
+    _index = 1
+    _input = {
+        "rate-constant": {"A": 3.7e+20, "b": 0, "Ea": 213200000.},
+        "coverage-dependencies": {"O(S)": {"a": 0.0, "m": 0.0, "E": -60000000.}},
+    }
+    _parts = _input["rate-constant"]
+    _yaml = """
+        rate-constant: {A: 3.7e+20, b: 0, Ea: 213200 J/mol}
+        coverage-dependencies:
+          O(S): {a: 0.0, m: 0.0, E: -6.0e+04 J/mol}
+        type: Arrhenius-interface
+        """
+
+class TestStickRate(SurfaceReactionRateTests, utilities.CanteraTest):
+    # test surface-sticking rate expressions without coverage dependency
+
+    _cls = ct.ArrheniusStickRate
+    _type = "Arrhenius-stick"
+    _index = 2
+    _input = {"sticking-coefficient": {"A": 1., "b": 0, "Ea": 0}}
+    _parts = _input["sticking-coefficient"]
+    _sticking_pars = 1.0, 36.23238248456493, "H"
+    _yaml = """
+        sticking-coefficient: {A: 1.0, b: 0, Ea: 0}
+        type: Arrhenius-stick
+        """
+
+
+class TestCoverageStickRate(SurfaceReactionRateTests, utilities.CanteraTest):
+    # test sticking rate expressions with coverage dependency
+
+    _cls = ct.ArrheniusStickRate
+    _type = "Arrhenius-stick"
+    _index = 3
+    _input = {
+        "sticking-coefficient": {"A": 0.046, "b": 0, "Ea": 0},
+        "coverage-dependencies": {"PT(S)": {"a": 0.0, "m": -1.0, "E": 0.0}},
+    }
+    _parts = _input["sticking-coefficient"]
+    _sticking_pars = 2.0, 25.62016335338055, "H2"
+    _yaml = """
+        sticking-coefficient: {A: 0.046, b: 0, Ea: 0}
+        coverage-dependencies:
+          PT(S): {a: 0.0, m: -1.0, E: 0.0}
+        type: Arrhenius-stick
+        """
+
+
+class TestMotzWiseStickRate(SurfaceReactionRateTests, utilities.CanteraTest):
+    # test interface reaction with coverages
+
+    _cls = ct.ArrheniusStickRate
+    _type = "Arrhenius-stick"
+    _index = 4
+    _input = {
+        "sticking-coefficient": {"A": 1., "b": 0, "Ea": 0.},
+        "Motz-Wise": True,
+    }
+    _parts = _input["sticking-coefficient"]
+    _sticking_pars = 1.0, 8.820908202811335, "OH"
+    _yaml = """
+        sticking-coefficient: {A: 1.0, b: 0, Ea: 0}
+        Motz-Wise: true
+        type: Arrhenius-stick
+        """
+
+
+# class TestSurfaceBMRate(SurfaceReactionRateTests, utilities.CanteraTest):
+#     # test coverage-Blowers-Masel rate expressions with coverage dependency
+
+#     _cls = ct.BlowersMaselInterfaceRate
+#     _type = "Blowers-Masel-interface"
+#     _index = 5
+#     _input = {
+#         "rate-constant": {"A": 3.7e+20, "b": 0, "Ea0": 67400000.0, 'w': 1000000000.0},
+#         "coverage-dependencies": {"H(S)": {"a": 0.0, "m": 0.0, "E": -6000000.0}},
+#     }
+#     _parts = _input["rate-constant"]
+#     _yaml = """
+#         rate-constant: {A: 3.7e+20, b: 0, Ea0: 67400000.0, w: 1000000000.0}
+#         coverage-dependencies:
+#           H(S): {a: 0.0, m: 0.0, E: -6000000.0}
+#         type: Blowers-Masel-interface
+#         """
+
+#     def eval(self, rate, species=True):
+#         # evaluate rate expression
+#         if species:
+#             rate.set_species(self.soln.species_names)
+#         delta_enthalpy = self.soln.delta_enthalpy[self._index]
+#         return rate(self.soln.T, delta_enthalpy, self.soln.coverages)
+
+
+# class TestBMStickingate(SurfaceReactionRateTests, utilities.CanteraTest):
+#     # test coverage-Blowers-Masel stick expressions with coverage dependency
+
+#     _cls = ct.BlowersMaselStickingRate
+#     _type = "Blowers-Masel-stick"
+#     _index = 6
+#     _input = {
+#         "sticking-coefficient": {"A": 1., "b": 0., "Ea0": 0., 'w': 100000.},
+#         "Motz-Wise": True,
+#     }
+#     _parts = _input["sticking-coefficient"]
+#     _sticking_pars = 1.0, 8.820908202811335, "OH"
+#     _yaml = """
+#         sticking-coefficient: {A: 1.0, b: 0, Ea0: 0, w: 100000}
+#         Motz-Wise: true
+#         type: Blowers-Masel-stick
+#         """
+
+#     def eval(self, rate, species=True):
+#         # evaluate rate expression
+#         if species:
+#             rate.set_species(self.soln.species_names)
+#         delta_enthalpy = self.soln.delta_enthalpy[self._index]
+#         return rate(self.soln.T, delta_enthalpy, self.soln.site_density, self.soln.coverages)
+
+
 class ReactionTests:
     # test suite for reaction expressions
 
@@ -702,6 +916,7 @@ class ReactionTests:
     def setUp(self):
         self.soln.X = "H2:0.1, H2O:0.2, O2:0.7, O:1e-4, OH:1e-5, H:2e-5"
         self.soln.TP = 900, 2*ct.one_atm
+        self.adj = []
 
     def eval_rate(self, rate):
         # evaluate rate expression
@@ -726,7 +941,7 @@ class ReactionTests:
         else:
             # Create an "empty" rate of the correct type for merged reaction types where
             # the only way they are distinguished is by the rate type
-            rate=self._rate_cls()
+            rate = self._rate_cls()
         return self._cls(equation=self._equation, rate=rate, kinetics=self.soln,
                          legacy=self._legacy, **self._kwargs)
 
@@ -749,9 +964,11 @@ class ReactionTests:
             rxn.rate = self._rate_obj
             rxn.reversible = "<=>" in self._equation
             return rxn
-        else:
-            return self._cls(orig.reactants, orig.products, rate=self._rate_obj,
-                            legacy=self._legacy)
+
+        rxn = self._cls(orig.reactants, orig.products, rate=self._rate_obj,
+                        legacy=self._legacy)
+        rxn.reversible = "<=>" in self._equation
+        return rxn
 
     def check_rate(self, rate_obj):
         if self._legacy:
@@ -766,7 +983,7 @@ class ReactionTests:
         self.assertEqual(rxn.reactants, self.soln.reaction(ix).reactants)
         self.assertEqual(rxn.products, self.soln.reaction(ix).products)
         if check_legacy:
-            self.assertEqual(rxn.uses_legacy, self._rxn_type.endswith("-legacy"))
+            # self.assertEqual(rxn.uses_legacy, self._rxn_type.endswith("-legacy"))
             self.assertEqual(rxn.uses_legacy, self._legacy)
             self.assertEqual(rxn.reaction_type, self._rxn_type)
             if not rxn.uses_legacy:
@@ -775,19 +992,26 @@ class ReactionTests:
         if not self._legacy:
             # legacy rate evaluation is not consistent
             self.check_rate(rxn.rate)
-        gas2 = ct.Solution(thermo="IdealGas", kinetics="GasKinetics",
-                           species=self.species, reactions=[rxn])
-        gas2.TPX = self.soln.TPX
-        self.check_solution(gas2, check_legacy)
+        if self.soln.thermo_model.lower() == "surf":
+            sol2 = ct.Interface(thermo="Surface", kinetics="interface",
+                                species=self.species, reactions=[rxn], adjacent=self.adj)
+            sol2.site_density = self.soln.site_density
+            sol2.coverages = self.soln.coverages
+            sol2.TP = self.soln.TP
+        else:
+            sol2 = ct.Solution(thermo=self.soln.thermo_model, kinetics=self.soln.kinetics_model,
+                               species=self.species, reactions=[rxn])
+            sol2.TPX = self.soln.TPX
+        self.check_solution(sol2, check_legacy)
 
-    def check_solution(self, gas2, check_legacy=True):
+    def check_solution(self, sol2, check_legacy=True):
         # helper function that checks evaluation of reaction rates
         ix = self._index
         if check_legacy:
-            self.assertEqual(gas2.reaction_type_str(0), self._rxn_type)
-        self.assertNear(gas2.forward_rate_constants[0],
+            self.assertEqual(sol2.reaction_type_str(0), self._rxn_type)
+        self.assertNear(sol2.forward_rate_constants[0],
                         self.soln.forward_rate_constants[ix])
-        self.assertNear(gas2.net_rates_of_progress[0],
+        self.assertNear(sol2.net_rates_of_progress[0],
                         self.soln.net_rates_of_progress[ix])
 
     def test_rate(self):
@@ -824,12 +1048,19 @@ class ReactionTests:
             rxn = self.from_yaml()
         else:
             rxn = self.from_rate(self._rate_obj)
-        gas2 = ct.Solution(thermo="IdealGas", kinetics="GasKinetics",
-                           species=self.species, reactions=[])
-        gas2.TPX = self.soln.TPX
+        if self.soln.thermo_model.lower() == "surf":
+            sol2 = ct.Interface(thermo="Surface", kinetics="interface",
+                                species=self.species, reactions=[], adjacent=self.adj)
+            sol2.site_density = self.soln.site_density
+            sol2.coverages = self.soln.coverages
+            sol2.TP = self.soln.TP
+        else:
+            sol2 = ct.Solution(thermo=self.soln.thermo_model, kinetics=self.soln.kinetics_model,
+                               species=self.species, reactions=[])
+            sol2.TPX = self.soln.TPX
         rxn = self.from_rate(self._rate_obj)
-        gas2.add_reaction(rxn)
-        self.check_solution(gas2)
+        sol2.add_reaction(rxn)
+        self.check_solution(sol2)
 
     def test_raises_invalid_rate(self):
         # check exception for instantiation from keywords / invalid rate
@@ -852,18 +1083,18 @@ class ReactionTests:
         else:
             self.assertIsNaN(self.eval_rate(rxn.rate))
 
-        gas2 = ct.Solution(thermo="IdealGas", kinetics="GasKinetics",
-                           species=self.species, reactions=[rxn])
-        gas2.TPX = self.soln.TPX
+        sol2 = ct.Solution(thermo=self.soln.thermo_model, kinetics=self.soln.kinetics_model,
+                           species=self.species, reactions=[rxn], adjacent=self.adj)
+        sol2.TPX = self.soln.TPX
         if self._legacy:
-            self.assertNear(gas2.forward_rate_constants[0], 0.)
-            self.assertNear(gas2.net_rates_of_progress[0], 0.)
+            self.assertNear(sol2.forward_rate_constants[0], 0.)
+            self.assertNear(sol2.net_rates_of_progress[0], 0.)
         elif not ct.debug_mode_enabled():
-            self.assertIsNaN(gas2.forward_rate_constants[0])
-            self.assertIsNaN(gas2.net_rates_of_progress[0])
+            self.assertIsNaN(sol2.forward_rate_constants[0])
+            self.assertIsNaN(sol2.net_rates_of_progress[0])
         else:
             with self.assertRaisesRegex(ct.CanteraError, "not finite"):
-                gas2.net_rates_of_progress
+                sol2.net_rates_of_progress
 
     def test_replace_rate(self):
         # check replacing reaction rate expression
@@ -1081,7 +1312,8 @@ class TestTwoTempPlasma(ReactionTests, utilities.CanteraTest):
         return rate(self.soln.T, self.soln.Te)
 
     def test_reversible(self):
-        rxn = super().from_parts()
+        orig = self.soln.reaction(self._index)
+        rxn = ct.Reaction(orig.reactants, orig.products, rate=self._rate_obj)
         with self.assertRaisesRegex(ct.CanteraError, "does not support reversible"):
             self.check_rxn(rxn)
 
@@ -1471,3 +1703,216 @@ class TestCustom(ReactionTests, utilities.CanteraTest):
         # check instantiation from keywords / rate provided as lambda function
         rxn = self.from_rate(lambda T: 38.7 * T**2.7 * exp(-3150.15428/T))
         self.check_rxn(rxn)
+
+
+class SurfaceReactionTests(ReactionTests):
+    # test suite for surface reaction expressions
+
+    _sticking_pars = None
+    _coverage_deps = None
+
+    @classmethod
+    def setUpClass(cls):
+        utilities.CanteraTest.setUpClass()
+        cls.soln = ct.Interface("kineticsfromscratch.yaml", "Pt_surf", transport_model=None)
+        cls.adj = [cls.soln.adjacent["ohmech"]]
+        cls.species = cls.soln.species()
+        cls.concentrations = cls.soln.concentrations
+        if cls._rate_cls is not None:
+            cls._rate_obj = cls._rate_cls(**cls._rate)
+            if cls._coverage_deps:
+                cls._rate_obj.coverage_dependencies = cls._coverage_deps
+
+    def setUp(self):
+        self.soln.TP = 900, ct.one_atm
+        gas = self.adj[0]
+        gas.X = "H2:0.05, H2O:0.01, O:1e-4, OH: 1e5, H:2e-5, O2:0.21, AR:0.79"
+        gas.TP = 900, ct.one_atm
+
+    def eval_rate(self, rate):
+        if self._legacy:
+            return super().eval_rate(rate)
+        rate.set_species(self.soln.species_names)
+        if self._sticking_pars is None:
+            return rate(self.soln.T, self.soln.coverages)
+        else:
+            return rate(self.soln.T, self.soln.site_density, self.soln.coverages)
+
+    def from_yaml(self, deprecated=False):
+        rxn = super().from_yaml(deprecated)
+        if self._sticking_pars:
+            rxn.rate.stick_coefficients = self._sticking_pars
+        return rxn
+
+    def from_dict(self):
+        rxn = super().from_dict()
+        if self._sticking_pars:
+            rxn.rate.stick_coefficients = self._sticking_pars
+        return rxn
+
+    def from_rate(self, rate):
+        if  not self._legacy and isinstance(rate, dict):
+            pytest.skip("Detection of rate from dictionary is ambiguous.")
+        rxn = super().from_rate(rate)
+        if isinstance(rate, dict) and self._coverage_deps:
+            rxn.rate.coverage_dependencies = self._coverage_deps
+        if self._sticking_pars:
+            rxn.rate.motz_wise_correction = "Motz-Wise" in self._yaml
+            rxn.rate.stick_coefficients = self._sticking_pars
+        return rxn
+
+    def from_parts(self):
+        rxn = super().from_parts()
+        if self._sticking_pars:
+            rxn.rate.motz_wise_correction = "Motz-Wise" in self._yaml
+            rxn.rate.stick_coefficients = self._sticking_pars
+        return rxn
+
+
+class TestInterfaceReaction2(SurfaceReactionTests, utilities.CanteraTest):
+    # test legacy version of interface reaction
+
+    _cls = ct.InterfaceReaction
+    _equation = "H(S) + O(S) <=> OH(S) + PT(S)"
+    _rate = {"A": 3.7e+20, "b": 0, "Ea": 1.15e7}
+    _index = 0
+    _rxn_type = "interface"
+    _legacy = True
+    _legacy_uses_rate = True
+    _yaml = """
+        equation: H(S) + O(S) <=> OH(S) + PT(S)
+        rate-constant: {A: 3.7e+20, b: 0, Ea: 11500 J/mol}
+        """
+
+    @classmethod
+    def setUpClass(cls):
+        SurfaceReactionTests.setUpClass()
+        args = list(cls._rate.values())
+        cls._rate_obj = ct.Arrhenius(*args)
+
+    @pytest.mark.skip("Legacy: modifying reactions is not supported")
+    def test_replace_rate(self):
+        pass
+
+
+class TestArrheniusInterfaceReaction(SurfaceReactionTests, utilities.CanteraTest):
+    # test interface reaction without coverages
+
+    _cls = ct.Reaction
+    _equation = "H(S) + O(S) <=> OH(S) + PT(S)"
+    _rate = {"A": 3.7e+20, "b": 0, "Ea": 1.15e7}
+    _index = 0
+    _rxn_type = "reaction"
+    _rate_type = "Arrhenius-interface"
+    _rate_cls = ct.ArrheniusInterfaceRate
+    _legacy = False
+    _yaml = """
+        equation: H(S) + O(S) <=> OH(S) + PT(S)
+        rate-constant: {A: 3.7e+20, b: 0, Ea: 11500 J/mol}
+        type: Arrhenius-interface
+        """
+
+
+class TestCoverageArrheniusReaction(TestArrheniusInterfaceReaction):
+    # test interface reaction with coverages
+
+    _equation = "2 O(S) => O2 + 2 PT(S)"
+    _rate = {"A": 3.7e+20, "b": 0, "Ea": 213200000.}
+    _index = 1
+    _coverage_deps = {"O(S)": {"a": 0.0, "m": 0.0, "E": -60000000.}}
+    _yaml = """
+        equation: 2 O(S) => O2 + 2 PT(S)
+        rate-constant: {A: 3.7e+21, b: 0, Ea: 213200}
+        coverage-dependencies:
+          O(S): {a: 0.0, m: 0.0, E: -6.0e+04}
+        units: {length: cm, quantity: mol, activation-energy: J/mol}
+        type: Arrhenius-interface
+        """
+
+
+class TestStickingReaction(SurfaceReactionTests, utilities.CanteraTest):
+    # test interface reaction with coverages
+
+    _cls = ct.Reaction
+    _equation = "H + PT(S) => H(S)"
+    _rate = {"A": 1., "b": 0, "Ea": 0.}
+    _index = 2
+    _rxn_type = "reaction"
+    _rate_type = "Arrhenius-stick"
+    _rate_cls = ct.ArrheniusStickRate
+    _sticking_pars = 1.0, 36.23238248456493, "H"
+    _yaml = """
+        equation: H + PT(S) => H(S)
+        sticking-coefficient: {A: 1.0, b: 0, Ea: 0}
+        units: {length: cm, quantity: mol, activation-energy: J/mol}
+        type: Arrhenius-stick
+        """
+
+
+class TestCoverageStickingReaction(TestStickingReaction):
+    # test interface reaction with coverages
+
+    _equation = "H2 + 2 PT(S) => 2 H(S)"
+    _rate = {"A": 0.046, "b": 0, "Ea": 0.}
+    _index = 3
+    _coverage_deps = {"PT(S)": {"a": 0.0, "m": -1.0, "E": 0.}}
+    _sticking_pars = 2.0, 25.62016335338055, "H2"
+    _yaml = """
+        equation: H2 + 2 PT(S) => 2 H(S)
+        sticking-coefficient: {A: 0.046, b: 0, Ea: 0}
+        coverage-dependencies:
+          PT(S): {a: 0.0, m: -1.0, E: 0.0}
+        units: {length: cm, quantity: mol, activation-energy: J/mol}
+        type: Arrhenius-stick
+        """
+
+
+class TestMotzWiseStickingReaction(TestStickingReaction):
+    # test interface reaction with coverages
+
+    _equation = "OH + PT(S) => OH(S)"
+    _rate = {"A": 1., "b": 0, "Ea": 0.}
+    _index = 4
+    _sticking_pars = 1.0, 8.820908202811335, "OH"
+    _yaml = """
+        equation: OH + PT(S) => OH(S)
+        sticking-coefficient: {A: 1.0, b: 0, Ea: 0}
+        Motz-Wise: true
+        units: {length: cm, quantity: mol, activation-energy: J/mol}
+        type: Arrhenius-stick
+        """
+
+
+# class TestSurfaceBMReaction(SurfaceReactionTests, utilities.CanteraTest):
+#     # test coverage-Blowers-Masel rate expressions with coverage dependency
+
+#     _cls = ct.NewBlowersMaselInterfaceReaction
+#     _equation = "2 H(S) => H2 + 2 PT(S)"
+#     _rate = {"A": 3.7e+20, "b": 0, "Ea0": 67400000.0, 'w': 1000000000.0}
+#     _index = 5
+#     _coverage_deps = {"H(S)": {"a": 0.0, "m": 0.0, "E": -6000000.0}}
+#     _type = "coverage-Blowers-Masel"
+#     # _legacy = False
+#     _yaml = """
+#         equation: 2 H(S) => H2 + 2 PT(S)
+#         rate-constant: {A: 3.7e+21, b: 0, Ea0: 67400, w: 1000000}
+#         coverage-dependencies:
+#           H(S): {a: 0.0, m: 0.0, E: -6000.0}
+#         units: {length: cm, quantity: mol, activation-energy: J/mol}
+#         type: coverage-Blowers-Masel
+#         """
+
+# - equation: 2 H(S) => H2 + 2 PT(S)
+#   type: Blowers-Masel
+#   rate-constant: {A: 3.7e+21, b: 0, Ea0: 67400, w: 1000000}
+#   coverage-dependencies:
+#     H(S): {a: 0.0, m: 0.0, E: -6000.0}
+#   units: {length: cm, quantity: mol, activation-energy: J/mol}
+#   note: Reaction 1 from BM-ptcombust-Motz-Wise.yaml
+
+# - equation: OH + PT(S) => OH(S)
+#   type: Blowers-Masel
+#   sticking-coefficient: {A: 1.0, b: 0, Ea0: 0, w: 100000}
+#   Motz-Wise: true
+#   units: {length: cm, quantity: mol, activation-energy: J/mol}
+#   note: Reaction 5 from BM-ptcombust-Motz-Wise.yaml

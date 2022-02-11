@@ -679,6 +679,153 @@ cdef class CustomRate(ReactionRate):
         self.cxx_object().setRateFunction(self._rate_func._func)
 
 
+cdef class CoverageArrheniusTypeRate(ArrheniusTypeRate):
+    """
+    Base class collecting commonly used features of Arrhenius-type rate objects
+    that include coverage dependencies.
+    """
+
+    property coverage_dependencies:
+        """
+        Get/set a dictionary containing adjustments to the Arrhenius rate expression
+        dependent on surface species coverages. The keys of the dictionary are species
+        names, and the values are dictionaries specifying the three coverage
+        parameters ``a``, ``m`` and ``E`` which are the modifiers for the pre-exponential
+        factor [m, kmol, s units], the temperature exponent [nondimensional],
+        and the activation energy [J/kmol], respectively.
+        """
+        def __get__(self):
+            cdef CxxAnyMap cxx_deps
+            self.coverage.getCoverageDependencies(cxx_deps)
+            return anymap_to_dict(cxx_deps)
+        def __set__(self, dict deps):
+            cdef CxxAnyMap cxx_deps = dict_to_anymap(deps)
+
+            self.coverage.setCoverageDependencies(cxx_deps)
+
+    def set_species(self, species):
+        """
+        Set association with species
+        """
+        cdef vector[string] cxxvector
+        for s in species:
+            cxxvector.push_back(stringify(s))
+        self.coverage.setSpecies(cxxvector)
+
+
+cdef class ArrheniusInterfaceRate(CoverageArrheniusTypeRate):
+    r"""
+    A reaction rate coefficient which depends on temperature and interface coverage
+    """
+    _reaction_rate_type = "Arrhenius-interface"
+
+    def __cinit__(self, A=None, b=None, Ea=None, input_data=None, init=True):
+
+        if init:
+            self._cinit(input_data, A=A, b=b, Ea=Ea)
+
+    def __call__(self, double temperature, np.ndarray coverages):
+        """
+        Evaluate rate expression based on temperature and surface coverages.
+        """
+        cdef vector[double] cxxdata
+        for c in coverages:
+            cxxdata.push_back(c)
+        return self.rate.eval(temperature, cxxdata)
+
+    def _from_dict(self, dict input_data):
+        self._rate.reset(new CxxArrheniusInterfaceRate(dict_to_anymap(input_data)))
+
+    def _from_parameters(self, A, b, Ea):
+        self._rate.reset(new CxxArrheniusInterfaceRate(A, b, Ea))
+
+    cdef set_cxx_object(self):
+        self.rate = self._rate.get()
+        self.base = <CxxArrhenius*>self.rate
+        self.coverage = <CxxCoverage*>self.cxx_object()
+
+    cdef CxxArrheniusInterfaceRate* cxx_object(self):
+        return <CxxArrheniusInterfaceRate*>self.rate
+
+    property effective_activation_energy:
+        """
+        The activation energy ``E`` [J/kmol].
+        """
+        def __get__(self):
+            return self.cxx_object().effectiveActivationEnergy()
+
+
+cdef class ArrheniusStickRate(CoverageArrheniusTypeRate):
+    r"""
+    A surface sticking rate expression
+    """
+    _reaction_rate_type = "Arrhenius-stick"
+
+    def __cinit__(self, A=None, b=None, Ea=None, input_data=None, init=True):
+
+        if init:
+            self._cinit(input_data, A=A, b=b, Ea=Ea)
+
+    def __call__(self, double temperature, double site_density, np.ndarray coverages):
+        """
+        Evaluate rate expression based on temperature and surface coverages.
+        """
+        cdef vector[double] cxxdata
+        for c in coverages:
+            cxxdata.push_back(c)
+        return self.rate.eval(temperature, site_density, cxxdata)
+
+    def _from_dict(self, dict input_data):
+        self._rate.reset(new CxxArrheniusStickRate(dict_to_anymap(input_data)))
+
+    def _from_parameters(self, A, b, Ea):
+        self._rate.reset(new CxxArrheniusStickRate(A, b, Ea))
+
+    cdef set_cxx_object(self):
+        self.rate = self._rate.get()
+        self.base = <CxxArrhenius*>self.rate
+        self.coverage = <CxxCoverage*>self.cxx_object()
+
+    cdef CxxArrheniusStickRate* cxx_object(self):
+        return <CxxArrheniusStickRate*>self.rate
+
+    property activation_energy:
+        """
+        The activation energy ``E`` [J/kmol].
+        """
+        def __get__(self):
+            return self.cxx_object().activationEnergy()
+
+    property stick_coefficients:
+        """
+        """
+        def __get__(self):
+            cdef double order = 0.
+            cdef double multiplier = 0.
+            cdef string species = stringify("")
+            self.cxx_object().getStickCoefficients(order, multiplier, species)
+            return order, multiplier, pystr(species)
+        def __set__(self, tuple pars):
+            cdef cbool explicit = False
+            if len(pars) == 4:
+                order, multiplier, species, explicit = pars
+            else:
+                order, multiplier, species = pars
+            self.cxx_object().setStickCoefficients(
+                order, multiplier, stringify(species), explicit)
+
+    property motz_wise_correction:
+        """
+        Get/Set a boolean indicating whether to use the correction factor developed by
+        Motz & Wise for reactions with high (near-unity) sticking coefficients when
+        converting the sticking coefficient to a rate coefficient.
+        """
+        def __get__(self):
+            return self.cxx_object().motzWiseCorrection()
+        def __set__(self, cbool motz_wise):
+            self.cxx_object().setMotzWiseCorrection(motz_wise)
+
+
 cdef class Reaction:
     """
     A class which stores data about a reaction and its rate parameterization so

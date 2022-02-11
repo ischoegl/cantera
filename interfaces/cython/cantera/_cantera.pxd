@@ -462,6 +462,9 @@ cdef extern from "cantera/kinetics/Reaction.h" namespace "Cantera":
         string type()
         double eval(double) except +translate_exception
         double eval(double, double) except +translate_exception
+        double eval(double, vector[double]&) except +translate_exception
+        double eval(double, double, vector[double]&) except +translate_exception
+        double eval(double, double, double, vector[double]&) except +translate_exception
         CxxAnyMap parameters() except +translate_exception
 
     cdef cppclass CxxArrheniusBase "Cantera::ArrheniusBase" (CxxReactionRate):
@@ -542,6 +545,29 @@ cdef extern from "cantera/kinetics/Reaction.h" namespace "Cantera":
     cdef cppclass CxxCustomFunc1Rate "Cantera::CustomFunc1Rate" (CxxReactionRate):
         CxxCustomFunc1Rate()
         void setRateFunction(shared_ptr[CxxFunc1]) except +translate_exception
+
+    cdef cppclass CxxCoverage "Cantera::Coverage":
+        void getCoverageDependencies(CxxAnyMap)
+        void setCoverageDependencies(CxxAnyMap) except +translate_exception
+        void setSpecies(vector[string]&) except +translate_exception
+
+    cdef cppclass CxxStickCoverage "Cantera::StickCoverage" (CxxCoverage):
+        void getStickCoefficients(double&, double&, string&)
+        void setStickCoefficients(double, double, string&, cbool)
+        cbool motzWiseCorrection()
+        void setMotzWiseCorrection(cbool)
+
+    cdef cppclass CxxArrheniusInterfaceRate "Cantera::ArrheniusInterfaceRate" (CxxReactionRate, CxxArrhenius, CxxCoverage):
+        CxxArrheniusInterfaceRate()
+        CxxArrheniusInterfaceRate(CxxAnyMap) except +translate_exception
+        CxxArrheniusInterfaceRate(double, double, double)
+        double effectiveActivationEnergy()
+
+    cdef cppclass CxxArrheniusStickRate "Cantera::ArrheniusStickRate" (CxxReactionRate, CxxArrhenius, CxxStickCoverage):
+        CxxArrheniusStickRate()
+        CxxArrheniusStickRate(CxxAnyMap) except +translate_exception
+        CxxArrheniusStickRate(double, double, double)
+        double effectiveActivationEnergy()
 
     cdef cppclass CxxThirdBody "Cantera::ThirdBody":
         CxxThirdBody()
@@ -1391,6 +1417,9 @@ cdef class FalloffRate(ReactionRate):
 cdef class CustomRate(ReactionRate):
     cdef CxxCustomFunc1Rate* cxx_object(self)
     cdef Func1 _rate_func
+
+cdef class CoverageArrheniusTypeRate(ArrheniusTypeRate):
+    cdef CxxCoverage* coverage
 
 cdef class Reaction:
     cdef shared_ptr[CxxReaction] _reaction

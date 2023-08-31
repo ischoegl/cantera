@@ -863,3 +863,42 @@ jobs:
         dotnet run --project examples/Application
         dotnet run --project examples/SoundSpeed
       working-directory: interfaces/dotnet
+
+  fedora-docker:
+    name: Docker 'fedora:${{ matrix.image }}' image
+    strategy:
+      matrix:
+        image: [rawhide, latest]
+      fail-fast: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: fedora:${{ matrix.image }}
+    steps:
+    - name: Install git on fedora:${{ matrix.image }}
+      run: |
+        dnf update -y
+        dnf install -y git
+        git config --global init.defaultBranch main
+        git config --global --add safe.directory /__w/cantera/cantera
+    - uses: actions/checkout@v3
+      name: Checkout the repository
+      with:
+        submodules: recursive
+    - name: Install dnf dependencies
+      # Use packages from fedora image when possible
+      run: |
+        dnf install -y boost-devel eigen3-devel fmt-devel gcc gcc-c++ gcc-gfortran \
+        sundials-devel yaml-cpp-devel gmock-devel gtest-devel hdf5 openblas \
+        python3 python3-devel python3-numpy python3-pip python3-pytest python3-wheel \
+        python3-cython python3-pint python3-scons python3-ruamel-yaml pipenv
+        gcc --version
+    - name: Install Python dependencies
+      run: |
+        pipenv install pytest-github-actions-annotate-failures
+    - name: Build Cantera
+      run: |
+        scons build env_vars=all -j2 debug=n --debug=time f90_interface=y
+    - name: Test Cantera
+      run:
+        scons test verbose_tests=yes --debug=time

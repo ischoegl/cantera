@@ -154,7 +154,7 @@ class CLibSourceGenerator(SourceGenerator):
             # Merge parameters from signature, doxygen info and doxygen details
             args_used = ArgList.from_xml(details.arglist).params  # from doxygen
             if "(" in implements:
-                args_short = Func.from_str(implements).params  # from recipe
+                args_short = Func.from_str(implements).arglist.params  # from recipe
                 args_used = args_used[:len(args_short)]
             args_annotated = details.parameterlist  # from documentation
             for arg in args_used:
@@ -195,7 +195,7 @@ class CLibSourceGenerator(SourceGenerator):
                             recipe.name, recipe.what)
             sys.exit(1)
 
-        c_func = Func(ret_param.p_type, recipe.name, args, "")
+        c_func = Func(ret_param.p_type, recipe.name, ArgList(args))
         declaration = c_func.declaration()
         annotations = self._build_annotation(details, ret_param, args, recipe.relates)
 

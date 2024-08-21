@@ -111,8 +111,7 @@ class Func:
 
     ret_type: str  # may include leading specifier
     name: str
-    params: List[Param]
-    spec: str  # trailing specifier
+    arglist: ArgList
 
     @classmethod
     def from_str(cls, func: str) -> 'Func':
@@ -123,13 +122,11 @@ class Func:
         r_type = ""
         if " " in name:
             r_type, name = name.rsplit(" ", 1)
-        return cls(r_type, name, arglist.params, arglist.spec)
+        return cls(r_type, name, arglist)
 
     def declaration(self) -> str:
         """Return a string representation of the function (without semi-colon)."""
-        return (f"{self.ret_type} "
-                f"{self.name}{ArgList(self.params).long_str()} "
-                f"{self.spec}").strip()
+        return (f"{self.ret_type} {self.name}{self.arglist.long_str()}").strip()
 
 
 @dataclass(frozen=True)

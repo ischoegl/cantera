@@ -20,10 +20,6 @@ _data_path = Path(__file__).parent.joinpath("_data").resolve()
 
 class HeaderFileParser:
 
-    @classmethod
-    def _parse_func(cls, func_comment: tuple[str, str]) -> Func:
-        return Func.from_str(*func_comment)
-
     def __init__(self, path: Path, ignore_funcs: List[str] = None):
         self._path = path
         self._ignore_funcs = ignore_funcs
@@ -69,56 +65,14 @@ class HeaderFileParser:
     def _parse_h(self) -> HeaderFile:
         ct = self._path.read_text()
 
-        def parse_with_doxygen(text):
-            # a primitive doxygen parser for existing Cantera CLib header files
-            regex = re.compile((
-                r"(?P<blank>\n\s*\n)|"  # blank line
-                r"(?P<head>(?=//! )[^\n]*)|"  # leading doxygen comment
-                r"(?P<func>(?=CANTERA_CAPI)[^;]*;)|"  # CLib function
-                r"(?P<tail>(?=//!< )[^\n]*)"))  # trailing doxygen comment
-            matches = re.finditer(regex, text)
-
-            pairs = []
-            function = None
-            comments = []
-            for m in matches:
-                if function:
-                    if m.group("func"):
-                        # new function: flush buffers
-                        pairs.append((function, "\n".join(comments)))
-                        comments = []
-                        function = m.group("func").replace("CANTERA_CAPI ", "")
-                    elif m.group("head"):
-                        # new heading comment: flush buffers
-                        pairs.append((function, "\n".join(comments)))
-                        comments = [m.group("head")]
-                        function = None
-                    elif m.group("tail"):
-                        # trailing comment: append to buffer
-                        comments.append(m.group("tail"))
-                    else:  # m.group("blank"):
-                        # blank line: flush buffers
-                        pairs.append((function, "\n".join(comments)))
-                        comments = []
-                        function = None
-                else:
-                    if m.group("blank"):
-                        # blank line: clear buffer
-                        comments = []
-                    elif m.group("head"):
-                        # new heading comment: buffer
-                        comments.append(m.group("head"))
-                    elif m.group("func"):
-                        # new function: buffer
-                        function = m.group("func").replace("CANTERA_CAPI ", "")
-            return pairs
-
-        c_functions = parse_with_doxygen(ct)
+        matches = re.finditer(r"CANTERA_CAPI.*?;", ct, re.DOTALL)
+        c_functions = [re.sub(r"\s+", " ", m.group()).replace("CANTERA_CAPI ", "")
+                       for m in matches]
 
         if not c_functions:
             return
 
-        parsed = map(self._parse_func, c_functions)
+        parsed = map(Func.from_str, c_functions)
 
         logger.info(f"  parsing {self._path.name}")
         if self._ignore_funcs:
@@ -130,17 +84,3 @@ class HeaderFileParser:
             return
 
         return HeaderFile(self._path, parsed)
-
-
-def doxygen_func(tag: str, text: str) -> str:
-    """Extract function signature from doxygen tag if it exists."""
-    regex = re.compile(rf"(?<={tag} ).*[^\(\n]|((?<={tag} )(.*?)\))")
-    matched = list(re.finditer(regex, text))
-    if not matched:
-        return ""
-    if len(matched) > 1:
-        msg = f"Found more than one {tag!r} annotation; returning first."
-        logging.warning(msg)
-        signatures = '\n  - '.join([""] + [_[0] for _ in matched])
-        logging.debug("Found instances:%s", signatures)
-    return matched[0][0]

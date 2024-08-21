@@ -21,10 +21,6 @@ _loader = Environment(loader=BaseLoader)
 class CSharpSourceGenerator(SourceGenerator):
     """The SourceGenerator for scaffolding C# files for the .NET interface"""
 
-    def _preamble(self, file_name: str) -> str:
-        template = _loader.from_string(self._templates["csharp-preamble"])
-        return template.render(file_name=file_name)
-
     def _get_property_text(self, clib_area: str, c_name: str, cs_name: str,
                            known_funcs: Dict[str, CsFunc]) -> str:
         getter = known_funcs.get(clib_area + "_" + c_name)
@@ -155,78 +151,59 @@ class CSharpSourceGenerator(SourceGenerator):
 
         return func
 
-    def _write_file(self, filename: str, contents: str):
-        _logger.info(f"  writing {filename!r}")
+    def _write_file(self, file_name: str, template_name: str, **kwargs) -> None:
+        _logger.info(f"  writing {file_name!r}")
+        template = _loader.from_string(self._templates["csharp-preamble"])
+        preamble = template.render(file_name=file_name)
 
-        self._out_dir.joinpath(filename).write_text(contents, encoding="utf-8")
+        template = _loader.from_string(self._templates[template_name])
+        contents = template.render(preamble=preamble, **kwargs)
+
+        self._out_dir.joinpath(file_name).write_text(contents, encoding="utf-8")
 
     def _scaffold_interop(self, header_file_path: Path, cs_funcs: List[CsFunc]):
         template = _loader.from_string(self._templates["csharp-interop-func"])
-        function_list = []
-        for func in cs_funcs:
-            function_list.append(
-                template.render(unsafe=func.unsafe(), declaration=func.declaration()))
+        function_list = [
+            template.render(unsafe=func.unsafe(), declaration=func.declaration())
+            for func in cs_funcs]
 
         file_name = "Interop.LibCantera." + header_file_path.name + ".g.cs"
-        preamble = self._preamble(file_name)
-
-        template = _loader.from_string(self._templates["csharp-scaffold-interop"])
-        interop_text = template.render(
-            preamble=preamble, cs_functions=function_list)
-
-        self._write_file(file_name, interop_text)
+        self._write_file(
+            file_name, "csharp-scaffold-interop", cs_functions=function_list)
 
     def _scaffold_handles(self, header_file_path: Path, handles: Dict[str, str]):
         template = _loader.from_string(self._templates["csharp-base-handle"])
-        handle_list = []
-        for class_name, release_func_name in handles.items():
-            handle_list.append(template.render(
-                class_name=class_name, release_func_name=release_func_name))
+        handle_list = [
+            template.render(class_name=key, release_func_name=val)
+            for key, val in handles.items()]
 
         file_name = "Interop.Handles." + header_file_path.name + ".g.cs"
-        preamble = self._preamble(file_name)
-
-        template = _loader.from_string(self._templates["csharp-scaffold-handles"])
-        handles_text = template.render(
-            preamble=preamble, cs_handles=handle_list)
-
-        self._write_file(file_name, handles_text)
+        self._write_file(
+            file_name, "csharp-scaffold-handles", cs_handles=handle_list)
 
     def _scaffold_derived_handles(self):
         template = _loader.from_string(self._templates["csharp-derived-handle"])
-        handle_list = []
-        for derived_class_name, base_class_name in self._config.derived_handles.items():
-            handle_list.append(template.render(
-                derived_class_name=derived_class_name, base_class_name=base_class_name))
+        handle_list = [
+            template.render(derived_class_name=key, base_class_name=val)
+            for key, val in self._config.derived_handles.items()]
 
         file_name = "Interop.Handles.g.cs"
-        preamble = self._preamble(file_name)
-
-        template = _loader.from_string(self._templates["csharp-scaffold-handles"])
-        derived_handles_text = template.render(
-            preamble=preamble, cs_handles=handle_list)
-
-        self._write_file(file_name, derived_handles_text)
+        self._write_file(
+            file_name, "csharp-scaffold-handles", cs_handles=handle_list)
 
     def _scaffold_wrapper_class(self, clib_area: str, props: Dict[str, str],
                                 known_funcs: Dict[str, CsFunc]):
-        wrapper_class_name = self._get_wrapper_class_name(clib_area)
-        handle_class_name = self._get_handle_class_name(clib_area)
-
         property_list = [
             self._get_property_text(clib_area, c_name, cs_name, known_funcs)
-                for (c_name, cs_name) in props.items()]
+            for c_name, cs_name in props.items()]
 
+        wrapper_class_name = self._get_wrapper_class_name(clib_area)
+        handle_class_name = self._get_handle_class_name(clib_area)
         file_name = wrapper_class_name + ".g.cs"
-        preamble = self._preamble(file_name)
-
-        template = _loader.from_string(self._templates["csharp-scaffold-wrapper-class"])
-        wrapper_class_text = template.render(
-            preamble=preamble,
+        self._write_file(
+            file_name, "csharp-scaffold-wrapper-class",
             wrapper_class_name=wrapper_class_name, handle_class_name=handle_class_name,
             cs_properties=property_list)
-
-        self._write_file(file_name, wrapper_class_text)
 
     def generate_source(self, headers_files: List[HeaderFile]):
         self._out_dir.mkdir(parents=True, exist_ok=True)

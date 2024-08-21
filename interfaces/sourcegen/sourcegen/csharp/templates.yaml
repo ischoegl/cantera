@@ -33,7 +33,7 @@ csharp-property-int-double: |-
   {
       get => InteropUtil.CheckReturn(
           LibCantera.{{ getter }}(_handle));
-      {%- if setter -%}
+      {%- if setter %}
       set => InteropUtil.CheckReturn(
           LibCantera.{{ setter }}(_handle, value));
       {%- endif %}
@@ -44,7 +44,7 @@ csharp-property-string: |-
   {
       get => InteropUtil.GetString(40, (length, buffer) =>
           LibCantera.{{ getter }}(_handle, ({{ p_type }}) length, buffer));
-      {%- if setter -%}
+      {% if setter -%}
       set => InteropUtil.CheckReturn(
           LibCantera.{{ setter }}(_handle, value));
       {%- endif %}

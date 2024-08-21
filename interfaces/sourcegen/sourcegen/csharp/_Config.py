@@ -12,11 +12,6 @@ class Config:
     """Provides configuration info for the CSharpSourceGenerator class"""
 
 
-    func_prolog = normalize_indent("""
-        [DllImport(LibFile)]
-        public static extern
-    """)
-
     ret_type_crosswalk = {
         "const char*": "string",
         "const double*": "double[]",

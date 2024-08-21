@@ -17,7 +17,7 @@ from .._SourceGenerator import SourceGenerator
 from .._TagFileParser import TagFileParser, TagDetails, tag_lookup
 
 
-logger = logging.getLogger()
+_logger = logging.getLogger()
 
 class CLibSourceGenerator(SourceGenerator):
     """The SourceGenerator for generating CLib."""
@@ -191,7 +191,7 @@ class CLibSourceGenerator(SourceGenerator):
             cabinets = [recipe.base]
 
         else:
-            logger.critical("Unable to build declaration for '%s' with type '%s'.",
+            _logger.critical("Unable to build declaration for '%s' with type '%s'.",
                             recipe.name, recipe.what)
             sys.exit(1)
 
@@ -223,7 +223,7 @@ class CLibSourceGenerator(SourceGenerator):
 
         if self._out_dir:
             out = Path(self._out_dir) / filename
-            logger.info(f"  writing {filename!r}")
+            _logger.info(f"  writing {filename!r}")
             with open(out, "wt", encoding="utf-8") as stream:
                 stream.write(output)
                 stream.write("\n")

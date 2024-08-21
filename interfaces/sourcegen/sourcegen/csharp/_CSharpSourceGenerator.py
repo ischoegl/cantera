@@ -9,6 +9,8 @@ from typing import List, Dict
 import re
 import textwrap
 
+from jinja2 import Environment, BaseLoader
+
 from ._dataclasses import CsFunc
 from ._Config import Config
 from .._helpers import normalize_indent, hanging_text
@@ -17,35 +19,10 @@ from .._SourceGenerator import SourceGenerator
 
 
 _logger = logging.getLogger()
+_loader = Environment(loader=BaseLoader)
 
 class CSharpSourceGenerator(SourceGenerator):
     """The SourceGenerator for scaffolding C# files for the .NET interface"""
-
-    def _get_interop_func_text(self, func: CsFunc) -> str:
-        ret = f"{self._config.func_prolog} "
-        if func.unsafe():
-            ret += "unsafe "
-        ret += f"{func.declaration()};"  # function text
-        return ret
-
-    @staticmethod
-    def _get_base_handle_text(class_name: str, release_func_name: str) -> str:
-        handle = normalize_indent(f"""
-            class {class_name} : CanteraHandle
-            {{
-                protected override bool ReleaseHandle() =>
-                    LibCantera.{release_func_name}(Value) == InteropConsts.Success;
-            }}
-        """)
-
-        return handle
-
-    @staticmethod
-    def _get_derived_handle_text(derived_class_name: str, base_class_name: str) -> str:
-        derived_text = f"""class {derived_class_name} : {base_class_name} {{ }}"""
-
-        return derived_text
-
 
     def _get_property_text(self, clib_area: str, c_name: str, cs_name: str,
                            known_funcs: Dict[str, CsFunc]) -> str:
@@ -61,44 +38,23 @@ class CSharpSourceGenerator(SourceGenerator):
             # from which we determine the appropriate C# type
             prop_type = self._config.prop_type_crosswalk[getter.arglist[-1].p_type]
 
-        setter = known_funcs.get(clib_area + "_set" + c_name.capitalize())
+        setter = known_funcs.get(
+            clib_area + "_set" + c_name.capitalize(),
+            CsFunc("", "", "", "", ""))
 
         if prop_type in ["int", "double"]:
-            text = f"""
-                public {prop_type} {cs_name}
-                {{
-                    get => InteropUtil.CheckReturn(
-                        LibCantera.{getter.name}(_handle));"""
-
-            if setter:
-                text += f"""
-                    set => InteropUtil.CheckReturn(
-                        LibCantera.{setter.name}(_handle, value));"""
-
-            text += """
-                }
-            """
+            template = _loader.from_string(self._templates["csharp-property-int-double"])
+            text = template.render(
+                prop_type=prop_type, cs_name=cs_name,
+                getter=getter.name, setter=setter.name)
         elif prop_type == "string":
-            p_type = getter.arglist[1].p_type
-
             # for get-string type functions we need to look up the type of the second
             # (index 1) param for a cast because sometimes it"s an int and other times
             # its a nuint (size_t)
-            text = f"""
-                public unsafe string {cs_name}
-                {{
-                    get => InteropUtil.GetString(40, (length, buffer) =>
-                        LibCantera.{getter.name}(_handle, ({p_type}) length, buffer));
-            """
-
-            if setter:
-                text += f"""
-                    set => InteropUtil.CheckReturn(
-                        LibCantera.{setter.name}(_handle, value));"""
-
-            text += """
-                }
-            """
+            template = _loader.from_string(self._templates["csharp-property-string"])
+            text = template.render(
+                cs_name=cs_name, p_type=getter.arglist[1].p_type,
+                getter=getter.name, setter=setter.name)
         else:
             _logger.critical(f"Unable to scaffold properties of type {prop_type!r}!")
             sys.exit(1)
@@ -204,49 +160,43 @@ class CSharpSourceGenerator(SourceGenerator):
         self._out_dir.joinpath(filename).write_text(contents, encoding="utf-8")
 
     def _scaffold_interop(self, header_file_path: Path, cs_funcs: List[CsFunc]):
-        functions_text = "\n\n".join(map(self._get_interop_func_text, cs_funcs))
+        template = _loader.from_string(self._templates["csharp-interop-func"])
+        function_list = []
+        for func in cs_funcs:
+            function_list.append(
+                template.render(unsafe=func.unsafe(), declaration=func.declaration()))
 
-        interop_text = textwrap.dedent(f"""
-            {hanging_text(self._config.preamble, 12)}
-
-            using System.Runtime.InteropServices;
-
-            namespace Cantera.Interop;
-
-            static partial class LibCantera
-            {{
-                {hanging_text(functions_text, 16)}
-            }}
-        """).lstrip()
+        template = _loader.from_string(self._templates["csharp-scaffold-interop"])
+        interop_text = template.render(
+            preamble=self._config.preamble, cs_functions=function_list)
 
         self._write_file("Interop.LibCantera." + header_file_path.name + ".g.cs",
             interop_text)
 
     def _scaffold_handles(self, header_file_path: Path, handles: Dict[str, str]):
-        handles_text = "\n\n".join(starmap(self._get_base_handle_text, handles.items()))
+        template = _loader.from_string(self._templates["csharp-base-handle"])
+        handle_list = []
+        for class_name, release_func_name in handles.items():
+            handle_list.append(template.render(
+                class_name=class_name, release_func_name=release_func_name))
 
-        handles_text = textwrap.dedent(f"""
-            {hanging_text(self._config.preamble, 12)}
-
-            namespace Cantera.Interop;
-
-            {hanging_text(handles_text, 12)}
-        """).lstrip()
+        template = _loader.from_string(self._templates["csharp-scaffold-handles"])
+        handles_text = template.render(
+            preamble=self._config.preamble, cs_handles=handle_list)
 
         self._write_file("Interop.Handles." + header_file_path.name + ".g.cs",
             handles_text)
 
     def _scaffold_derived_handles(self):
-        derived_handles = "\n\n".join(starmap(self._get_derived_handle_text,
-            self._config.derived_handles.items()))
+        template = _loader.from_string(self._templates["csharp-derived-handle"])
+        handle_list = []
+        for derived_class_name, base_class_name in self._config.derived_handles.items():
+            handle_list.append(template.render(
+                derived_class_name=derived_class_name, base_class_name=base_class_name))
 
-        derived_handles_text = textwrap.dedent(f"""
-            {hanging_text(self._config.preamble, 12)}
-
-            namespace Cantera.Interop;
-
-            {hanging_text(derived_handles, 12)}
-        """).lstrip()
+        template = _loader.from_string(self._templates["csharp-scaffold-handles"])
+        derived_handles_text = template.render(
+            preamble=self._config.preamble, cs_handles=handle_list)
 
         self._write_file("Interop.Handles.g.cs", derived_handles_text)
 
@@ -255,35 +205,41 @@ class CSharpSourceGenerator(SourceGenerator):
         wrapper_class_name = self._get_wrapper_class_name(clib_area)
         handle_class_name = self._get_handle_class_name(clib_area)
 
-        properties_text = "\n\n".join(
+        property_list = [
             self._get_property_text(clib_area, c_name, cs_name, known_funcs)
-                for (c_name, cs_name) in props.items())
+                for (c_name, cs_name) in props.items()]
 
-        wrapper_class_text = textwrap.dedent(f"""
-            {hanging_text(self._config.preamble, 12)}
+        template = _loader.from_string(self._templates["csharp-scaffold-wrapper-class"])
+        wrapper_class_text = template.render(
+            preamble=self._config.preamble,
+            wrapper_class_name=wrapper_class_name, handle_class_name=handle_class_name,
+            cs_properties=property_list)
 
-            using Cantera.Interop;
+        # wrapper_class_text = textwrap.dedent(f"""
+        #     {hanging_text(self._config.preamble, 12)}
 
-            namespace Cantera;
+        #     using Cantera.Interop;
 
-            public partial class {wrapper_class_name} : IDisposable
-            {{
-                readonly {handle_class_name} _handle;
+        #     namespace Cantera;
 
-                #pragma warning disable CS1591
+        #     public partial class {wrapper_class_name} : IDisposable
+        #     {{
+        #         readonly {handle_class_name} _handle;
 
-                {hanging_text(properties_text, 16)}
+        #         #pragma warning disable CS1591
 
-                #pragma warning restore CS1591
+        #         {hanging_text(properties_text, 16)}
 
-                /// <summary>
-                /// Frees the underlying resources used by the
-                /// native Cantera library for this instance.
-                /// </summary>
-                public void Dispose() =>
-                    _handle.Dispose();
-            }}
-        """).lstrip()
+        #         #pragma warning restore CS1591
+
+        #         /// <summary>
+        #         /// Frees the underlying resources used by the
+        #         /// native Cantera library for this instance.
+        #         /// </summary>
+        #         public void Dispose() =>
+        #             _handle.Dispose();
+        #     }}
+        # """).lstrip()
 
         self._write_file(wrapper_class_name + ".g.cs", wrapper_class_text)
 

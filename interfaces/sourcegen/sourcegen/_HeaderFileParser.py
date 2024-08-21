@@ -12,7 +12,7 @@ from ._dataclasses import HeaderFile, Func, Recipe
 from ._helpers import read_config
 
 
-logger = logging.getLogger()
+_logger = logging.getLogger()
 
 _clib_path = Path(__file__).parent.joinpath("../../../include/cantera/clib").resolve()
 _clib_ignore = ["clib_defs.h", "ctmatlab.h"]
@@ -74,9 +74,9 @@ class HeaderFileParser:
 
         parsed = map(Func.from_str, c_functions)
 
-        logger.info(f"  parsing {self._path.name}")
+        _logger.info(f"  parsing {self._path.name}")
         if self._ignore_funcs:
-            logger.info(f"    ignoring {self._ignore_funcs}")
+            _logger.info(f"    ignoring {self._ignore_funcs}")
 
         parsed = [f for f in parsed if f.name not in self._ignore_funcs]
 

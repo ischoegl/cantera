@@ -13,7 +13,7 @@ from ._SourceGenerator import SourceGenerator
 from ._helpers import read_config
 
 
-logger = logging.getLogger()
+_logger = logging.getLogger()
 
 class CustomFormatter(logging.Formatter):
     """Minimalistic logging output"""
@@ -27,10 +27,10 @@ def generate_source(lang: str, out_dir: str=""):
     """Main entry point of sourcegen."""
     loghandler = logging.StreamHandler(sys.stdout)
     loghandler.setFormatter(CustomFormatter())
-    logger.handlers.clear()
-    logger.addHandler(loghandler)
-    logger.setLevel(logging.DEBUG)
-    logger.info(f"Generating {lang!r} source files...")
+    _logger.handlers.clear()
+    _logger.addHandler(loghandler)
+    _logger.setLevel(logging.DEBUG)
+    _logger.info(f"Generating {lang!r} source files...")
 
     module = importlib.import_module(__package__ + "." + lang)
     root = Path(module.__file__).parent
@@ -50,4 +50,4 @@ def generate_source(lang: str, out_dir: str=""):
     scaffolder: SourceGenerator = scaffolder_type(out_dir, config, templates)
 
     scaffolder.generate_source(files)
-    logger.info("Done.")
+    _logger.info("Done.")

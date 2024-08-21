@@ -14,7 +14,7 @@ from ._dataclasses import ArgList, Param
 from ._helpers import with_unpack_iter
 
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 _tag_path = Path(__file__).parent.joinpath("../../../build/doc/").resolve()
 _xml_path = _tag_path / "doxygen" / "xml"
@@ -101,7 +101,7 @@ class TagFileParser:
             missing = '", "'.join(set(names) - set(found))
             msg = f"Missing {kind!r} compound(s):\n    {missing!r}\nusing regex "
             msg += f"{regex}. Continuing with remaining compounds: \n    {found!r}"
-            logger.error(msg)
+            _logger.error(msg)
 
         # Parse content of namespace Cantera
         namespace = xml_compounds("namespace", ["Cantera"])["Cantera"]
@@ -112,7 +112,7 @@ class TagFileParser:
         unknown = set(bases) - set(class_names)
         if unknown:
             unknown = "', '".join(unknown)
-            logger.warning(
+            _logger.warning(
                 "Class(es) in configuration file are missing from tag file: '%s'",
                 unknown)
 
@@ -142,7 +142,7 @@ class TagFileParser:
         if not tag_file.exists():
             msg = (f"Tag file does not exist at expected location:\n    {tag_file}\n"
                    "Run 'scons doxygen' to generate.")
-            logger.critical(msg)
+            _logger.critical(msg)
             sys.exit(1)
 
         with tag_file.open() as fid:
@@ -155,7 +155,7 @@ class TagFileParser:
         """Look up tag information based on (partial) function signature."""
         cxx_func = func_string.split("(")[0].split(" ")[-1]
         if cxx_func not in self._known:
-            logger.critical(f"Did not find {cxx_func!r} in doxygen tag file.")
+            _logger.critical(f"Did not find {cxx_func!r} in doxygen tag file.")
             sys.exit(1)
         ix = 0
         if len(self._known[cxx_func]) > 1:
@@ -165,8 +165,8 @@ class TagFileParser:
                 known = '\n - '.join(
                     [""] + [ArgList.from_xml(xml_tag("arglist", xml)).short_str()
                             for xml in self._known[cxx_func]])
-                # logger.debug(f"Known functions: are {known}")
-                logger.critical(
+                # _logger.debug(f"Known functions: are {known}")
+                _logger.critical(
                     f"Need argument list to disambiguate {func_string!r}. "
                     f"possible matches are:{known}")
                 sys.exit(1)
@@ -178,7 +178,7 @@ class TagFileParser:
                     ix = i
                     break
             if ix < 0:
-                logger.critical(
+                _logger.critical(
                     f"Unable to match {func_string!r} to known functions.")
                 sys.exit(1)
 
@@ -190,7 +190,7 @@ def tag_lookup(tag_info: TagInfo) -> TagDetails:
     xml_file = _xml_path / tag_info.anchorfile
     if not xml_file.exists():
         msg = (f"XML file does not exist at expected location: {xml_file}")
-        logger.error(msg)
+        _logger.error(msg)
         return TagDetails()
 
     with xml_file.open() as fid:
@@ -201,10 +201,10 @@ def tag_lookup(tag_info: TagInfo) -> TagDetails:
     matches = re.findall(regex, xml_details)
 
     if not matches:
-        logger.error("No XML matches found for '%s'", tag_info.qualified_name)
+        _logger.error("No XML matches found for '%s'", tag_info.qualified_name)
         return TagDetails()
     if len(matches) != 1:
-        logger.error("Inconclusive XML matches found for '%s'", tag_info.qualified_name)
+        _logger.error("Inconclusive XML matches found for '%s'", tag_info.qualified_name)
         return TagDetails()
 
     def cleanup(entry: str) -> str:
@@ -278,6 +278,6 @@ def xml_tags(tag: str, text: str, suffix: str="") -> List[str]:
         blanks = text.split("\n")[-1].split("<")[0]
         msg = f"Could not extract {tag!r} from:\n{blanks}{text}\n"
         msg += f"using regex: {regex}"
-        logger.error(msg)
+        _logger.error(msg)
         return []
     return matched

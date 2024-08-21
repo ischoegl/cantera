@@ -109,14 +109,13 @@ class ArgList:
 class Func:
     """Represents a function parsed from a C header file."""
 
-    annotations: str  # documentation block
     ret_type: str  # may include leading specifier
     name: str
     params: List[Param]
     spec: str  # trailing specifier
 
     @classmethod
-    def from_str(cls, func: str, annotations: str="") -> 'Func':
+    def from_str(cls, func: str) -> 'Func':
         """Generate Func from string function signature"""
         func = func.strip()
         name = re.findall(re.compile(r'.*?(?=\(|$)'), func)[0]
@@ -124,7 +123,7 @@ class Func:
         r_type = ""
         if " " in name:
             r_type, name = name.rsplit(" ", 1)
-        return cls(annotations, r_type, name, arglist.params, arglist.spec)
+        return cls(r_type, name, arglist.params, arglist.spec)
 
     def declaration(self) -> str:
         """Return a string representation of the function (without semi-colon)."""

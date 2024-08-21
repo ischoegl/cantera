@@ -26,18 +26,11 @@ class CSharpSourceGenerator(SourceGenerator):
         return ", ".join(p.p_type + " " + p.name for p in params)
 
     def _get_interop_func_text(self, func: CsFunc) -> str:
-        comments, ret_type, name, params, _, _, _ = func
+        ret_type, name, params, _, _, _ = func
         requires_unsafe_keyword = any(p.p_type.endswith("*") for p in params)
         params_text = self._join_params(params)
 
-        ret = ""
-        if comments:
-            # convert trailing C++ doxygen comments, but retain C++ formatting
-            # comment blocks will not be parsed by .NET
-            comments = comments.replace("//!< ", "//! ").strip()
-            ret += f"{comments}\n"
-
-        ret += f"{self._config.func_prolog} "
+        ret = f"{self._config.func_prolog} "
         if requires_unsafe_keyword:
             ret += "unsafe "
         ret += f"{ret_type} {name}({params_text});"  # function text
@@ -137,7 +130,7 @@ class CSharpSourceGenerator(SourceGenerator):
         return self._get_wrapper_class_name(clib_area) + "Handle"
 
     def _convert_func(self, parsed: Func) -> CsFunc:
-        comments, ret_type, name, _, _ = parsed
+        ret_type, name, _, _ = parsed
         clib_area, method = name.split("_", 1)
 
         # Shallow copy the params list
@@ -205,8 +198,7 @@ class CSharpSourceGenerator(SourceGenerator):
 
             params[i] = Param(param_type, param_name)
 
-        func = CsFunc(comments,
-                      ret_type,
+        func = CsFunc(ret_type,
                       name,
                       params,
                       "",

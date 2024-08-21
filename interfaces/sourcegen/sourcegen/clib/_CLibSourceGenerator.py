@@ -195,7 +195,7 @@ class CLibSourceGenerator(SourceGenerator):
                             recipe.name, recipe.what)
             sys.exit(1)
 
-        c_func = Func("", ret_param.p_type, recipe.name, args, "")
+        c_func = Func(ret_param.p_type, recipe.name, args, "")
         declaration = c_func.declaration()
         annotations = self._build_annotation(details, ret_param, args, recipe.relates)
 

@@ -16,24 +16,16 @@ from .._dataclasses import Func, Param, HeaderFile
 from .._SourceGenerator import SourceGenerator
 
 
-logger = logging.getLogger()
+_logger = logging.getLogger()
 
 class CSharpSourceGenerator(SourceGenerator):
     """The SourceGenerator for scaffolding C# files for the .NET interface"""
 
-    @staticmethod
-    def _join_params(params: List[Param]) -> str:
-        return ", ".join(p.p_type + " " + p.name for p in params)
-
     def _get_interop_func_text(self, func: CsFunc) -> str:
-        ret_type, name, params, _, _, _ = func
-        requires_unsafe_keyword = any(p.p_type.endswith("*") for p in params)
-        params_text = self._join_params(params)
-
         ret = f"{self._config.func_prolog} "
-        if requires_unsafe_keyword:
+        if func.unsafe():
             ret += "unsafe "
-        ret += f"{ret_type} {name}({params_text});"  # function text
+        ret += f"{func.declaration()};"  # function text
         return ret
 
     @staticmethod
@@ -108,14 +100,14 @@ class CSharpSourceGenerator(SourceGenerator):
                 }
             """
         else:
-            logger.critical("Unable to scaffold properties of type '%s'!", prop_type)
+            _logger.critical(f"Unable to scaffold properties of type {prop_type!r}!")
             sys.exit(1)
 
         return normalize_indent(text)
 
     def __init__(self, out_dir: str, config: dict, templates: dict):
         if not out_dir:
-            logger.critical("Non-empty string identifying output path required.")
+            _logger.critical("Non-empty string identifying output path required.")
             sys.exit(1)
         self._out_dir = Path(out_dir)
 
@@ -184,8 +176,8 @@ class CSharpSourceGenerator(SourceGenerator):
                     # We assume a double* can reliably become a double[].
                     # However, this logic is too simplistic if there is
                     # more than one array.
-                    logger.critical("Cannot scaffold '%s' with "
-                                    "more than one array of doubles!", name)
+                    _logger.critical(f"Cannot scaffold {name!r} with "
+                                     "more than one array of doubles!")
                     sys.exit(1)
 
                 if clib_area == "thermo" and re.match("^set_[A-Z]{2}$", method):
@@ -208,7 +200,7 @@ class CSharpSourceGenerator(SourceGenerator):
         return func
 
     def _write_file(self, filename: str, contents: str):
-        logger.info("  writing %s", filename)
+        _logger.info(f"  writing {filename!r}")
 
         self._out_dir.joinpath(filename).write_text(contents, encoding="utf-8")
 

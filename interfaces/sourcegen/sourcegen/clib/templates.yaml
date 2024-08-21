@@ -4,7 +4,7 @@
 # at https://cantera.org/license.txt for license and copyright information.
 
 clib-param: |-
-  @param{{ '[' + par.direction + ']' if par.direction else '' }} {{ par.name }}
+  @param{{ '[' + par.direction + ']' if par.direction }} {{ par.name }}
 
 clib-comment: |-
   {{ briefdescription }}

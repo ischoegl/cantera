@@ -59,7 +59,7 @@ class CSharpSourceGenerator(SourceGenerator):
             getter = known_funcs[clib_area + "_get" + c_name.capitalize()]
             # this assumes the last param in the function is a pointer type,
             # from which we determine the appropriate C# type
-            prop_type = self._config.prop_type_crosswalk[getter.arglist.params[-1].p_type]
+            prop_type = self._config.prop_type_crosswalk[getter.arglist[-1].p_type]
 
         setter = known_funcs.get(clib_area + "_set" + c_name.capitalize())
 
@@ -79,7 +79,7 @@ class CSharpSourceGenerator(SourceGenerator):
                 }
             """
         elif prop_type == "string":
-            p_type = getter.arglist.params[1].p_type
+            p_type = getter.arglist[1].p_type
 
             # for get-string type functions we need to look up the type of the second
             # (index 1) param for a cast because sometimes it"s an int and other times
@@ -131,7 +131,7 @@ class CSharpSourceGenerator(SourceGenerator):
         # replace their entry in the list.
         # Therefore, copy the list so that we don’t accidentally modify
         # the params list which is attached to the C func.
-        params = parsed.arglist.params[:]
+        params = parsed.arglist[:]
 
         release_func_handle_class_name = None
 

@@ -17,4 +17,4 @@ class CsFunc(Func):
     handle_class_name: Union[str, None]
 
     def unsafe(self):
-        return any(p.p_type.endswith("*") for p in self.arglist.params)
+        return any(p.p_type.endswith("*") for p in self.arglist)

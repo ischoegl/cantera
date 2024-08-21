@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 import re
 from pathlib import Path
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Iterator
 
 from ._helpers import with_unpack_iter
 
@@ -20,8 +20,8 @@ class Param:
     direction: str = ""
     default: Any = None
 
-    @staticmethod
-    def from_str(param: str) -> 'Param':
+    @classmethod
+    def from_str(cls, param: str) -> 'Param':
         """Generate Param from string parameter"""
         param = param.strip()
         default = None
@@ -30,24 +30,23 @@ class Param:
             param = param[:param.rfind("=")]
         parts = param.strip().rsplit(" ", 1)
         if len(parts) == 2 and parts[0] not in ["const", "virtual", "static"]:
-            return Param(*parts, "", "", default)
-        return Param(param)
+            return cls(*parts, "", "", default)
+        return cls(param)
 
-    @staticmethod
-    def from_xml(param: str) -> 'Param':
+    @classmethod
+    def from_xml(cls, param: str) -> 'Param':
         param = param.strip()
         replacements = [(" &amp;", "& "), ("&lt; ", "<"), (" &gt;", ">")]
         for rep in replacements:
             param = param.replace(*rep)
-        ret = Param.from_str(param.strip())
-        return ret
+        return cls.from_str(param.strip())
 
     def short_str(self) -> str:
-        """Return a short string representation of the parameter"""
-        return f"{self.p_type}"
+        """String representation of the parameter without parameter name."""
+        return self.p_type
 
     def long_str(self) -> str:
-        """Return a short string representation of the parameter"""
+        """String representation of the parameter with parameter name."""
         if not self.name:
             raise ValueError(f"Parameter name is undefined: {self}")
         if self.default is not None:
@@ -56,12 +55,11 @@ class Param:
 
 
 @dataclass(frozen=True)
-@with_unpack_iter
 class ArgList:
     """Represents a function argument list"""
 
     params: List[Param]
-    spec: str = ""  #: Specification (example: `const`)
+    spec: str = ""  #: trailing Specification (example: `const`)
 
     @staticmethod
     def _split_arglist(arglist: str) -> Tuple[str, str]:
@@ -75,33 +73,37 @@ class ArgList:
         arglist = re.findall(regex, arglist)[0]
         return arglist, spec
 
-    @staticmethod
-    def from_str(arglist: str) -> 'ArgList':
+    @classmethod
+    def from_str(cls, arglist: str) -> 'ArgList':
         """Generate ArgList from string argument list."""
-        arglist, spec = ArgList._split_arglist(arglist)
+        arglist, spec = cls._split_arglist(arglist)
         if not arglist:
-            return ArgList([], spec)
-        return ArgList([Param.from_str(_) for _ in arglist.split(",")], spec)
+            return cls([], spec)
+        return cls([Param.from_str(_) for _ in arglist.split(",")], spec)
 
-    @staticmethod
-    def from_xml(arglist: str) -> 'ArgList':
+    @classmethod
+    def from_xml(cls, arglist: str) -> 'ArgList':
         """Generate ArgList from XML string argument list"""
-        arglist, spec = ArgList._split_arglist(arglist)
+        arglist, spec = cls._split_arglist(arglist)
         if not arglist:
-            return ArgList([], spec)
-        return ArgList([Param.from_xml(_) for _ in arglist.split(",")], spec)
+            return cls([], spec)
+        return cls([Param.from_xml(_) for _ in arglist.split(",")], spec)
+
+    def __getitem__(self, k):
+        return self.params[k]
+
+    def __iter__(self) -> "Iterator[Param]":
+        return iter(self.params)
 
     def short_str(self) -> str:
-        """Return a short string representation of the argument list"""
-        return f"({', '.join([_.short_str() for _ in self.params])})"
+        """String representation of the argument list without parameter names."""
+        args = ', '.join([par.short_str() for par in self.params])
+        return f"({args}) {self.spec}".strip()
 
     def long_str(self) -> str:
-        """Return a short string representation of the argument list"""
-        return f"({', '.join([_.long_str() for _ in self.params])}) {self.spec}".strip()
-
-    def n_optional(self):
-        """Return the number of optional arguments"""
-        return sum([1 for _ in self.params if _.default is not None])
+        """String representation of the argument list with parameter names."""
+        args = ', '.join([par.long_str() for par in self.params])
+        return f"({args}) {self.spec}".strip()
 
 
 @dataclass(frozen=True)
@@ -115,7 +117,7 @@ class Func:
 
     @classmethod
     def from_str(cls, func: str) -> 'Func':
-        """Generate Func from string function signature"""
+        """Generate Func from declaration string of a function."""
         func = func.strip()
         name = re.findall(re.compile(r'.*?(?=\(|$)'), func)[0]
         arglist = ArgList.from_str(func.replace(name, "").strip())
@@ -125,7 +127,7 @@ class Func:
         return cls(r_type, name, arglist)
 
     def declaration(self) -> str:
-        """Return a string representation of the function (without semi-colon)."""
+        """Return a string representation of the function without semicolon."""
         return (f"{self.ret_type} {self.name}{self.arglist.long_str()}").strip()
 
 

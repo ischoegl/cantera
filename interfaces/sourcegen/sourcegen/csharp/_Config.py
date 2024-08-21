@@ -4,8 +4,6 @@
 from dataclasses import dataclass
 from typing import Dict
 
-from .._helpers import get_preamble, normalize_indent
-
 
 @dataclass(frozen=True)
 class Config:
@@ -24,9 +22,6 @@ class Config:
         "byte*": "string",
         "double*": "double[]"
     }
-
-    # Reformat preamble to standard comment block
-    preamble = "\n * ".join(["/*"] + get_preamble().split("\n")) + "\n */"
 
     # These we load from the parsed YAML config file
     class_crosswalk: Dict[str, str]

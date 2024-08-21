@@ -1,19 +1,16 @@
 # This file is part of Cantera. See License.txt in the top-level directory or
 # at https://cantera.org/license.txt for license and copyright information.
 
-from itertools import starmap
 from pathlib import Path
 import sys
 import logging
 from typing import List, Dict
 import re
-import textwrap
 
 from jinja2 import Environment, BaseLoader
 
 from ._dataclasses import CsFunc
 from ._Config import Config
-from .._helpers import normalize_indent, hanging_text
 from .._dataclasses import Func, Param, HeaderFile, ArgList
 from .._SourceGenerator import SourceGenerator
 
@@ -23,6 +20,10 @@ _loader = Environment(loader=BaseLoader)
 
 class CSharpSourceGenerator(SourceGenerator):
     """The SourceGenerator for scaffolding C# files for the .NET interface"""
+
+    def _preamble(self, file_name: str) -> str:
+        template = _loader.from_string(self._templates["csharp-preamble"])
+        return template.render(file_name=file_name)
 
     def _get_property_text(self, clib_area: str, c_name: str, cs_name: str,
                            known_funcs: Dict[str, CsFunc]) -> str:
@@ -59,7 +60,7 @@ class CSharpSourceGenerator(SourceGenerator):
             _logger.critical(f"Unable to scaffold properties of type {prop_type!r}!")
             sys.exit(1)
 
-        return normalize_indent(text)
+        return text
 
     def __init__(self, out_dir: str, config: dict, templates: dict):
         if not out_dir:
@@ -166,12 +167,14 @@ class CSharpSourceGenerator(SourceGenerator):
             function_list.append(
                 template.render(unsafe=func.unsafe(), declaration=func.declaration()))
 
+        file_name = "Interop.LibCantera." + header_file_path.name + ".g.cs"
+        preamble = self._preamble(file_name)
+
         template = _loader.from_string(self._templates["csharp-scaffold-interop"])
         interop_text = template.render(
-            preamble=self._config.preamble, cs_functions=function_list)
+            preamble=preamble, cs_functions=function_list)
 
-        self._write_file("Interop.LibCantera." + header_file_path.name + ".g.cs",
-            interop_text)
+        self._write_file(file_name, interop_text)
 
     def _scaffold_handles(self, header_file_path: Path, handles: Dict[str, str]):
         template = _loader.from_string(self._templates["csharp-base-handle"])
@@ -180,12 +183,14 @@ class CSharpSourceGenerator(SourceGenerator):
             handle_list.append(template.render(
                 class_name=class_name, release_func_name=release_func_name))
 
+        file_name = "Interop.Handles." + header_file_path.name + ".g.cs"
+        preamble = self._preamble(file_name)
+
         template = _loader.from_string(self._templates["csharp-scaffold-handles"])
         handles_text = template.render(
-            preamble=self._config.preamble, cs_handles=handle_list)
+            preamble=preamble, cs_handles=handle_list)
 
-        self._write_file("Interop.Handles." + header_file_path.name + ".g.cs",
-            handles_text)
+        self._write_file(file_name, handles_text)
 
     def _scaffold_derived_handles(self):
         template = _loader.from_string(self._templates["csharp-derived-handle"])
@@ -194,11 +199,14 @@ class CSharpSourceGenerator(SourceGenerator):
             handle_list.append(template.render(
                 derived_class_name=derived_class_name, base_class_name=base_class_name))
 
+        file_name = "Interop.Handles.g.cs"
+        preamble = self._preamble(file_name)
+
         template = _loader.from_string(self._templates["csharp-scaffold-handles"])
         derived_handles_text = template.render(
-            preamble=self._config.preamble, cs_handles=handle_list)
+            preamble=preamble, cs_handles=handle_list)
 
-        self._write_file("Interop.Handles.g.cs", derived_handles_text)
+        self._write_file(file_name, derived_handles_text)
 
     def _scaffold_wrapper_class(self, clib_area: str, props: Dict[str, str],
                                 known_funcs: Dict[str, CsFunc]):
@@ -209,39 +217,16 @@ class CSharpSourceGenerator(SourceGenerator):
             self._get_property_text(clib_area, c_name, cs_name, known_funcs)
                 for (c_name, cs_name) in props.items()]
 
+        file_name = wrapper_class_name + ".g.cs"
+        preamble = self._preamble(file_name)
+
         template = _loader.from_string(self._templates["csharp-scaffold-wrapper-class"])
         wrapper_class_text = template.render(
-            preamble=self._config.preamble,
+            preamble=preamble,
             wrapper_class_name=wrapper_class_name, handle_class_name=handle_class_name,
             cs_properties=property_list)
 
-        # wrapper_class_text = textwrap.dedent(f"""
-        #     {hanging_text(self._config.preamble, 12)}
-
-        #     using Cantera.Interop;
-
-        #     namespace Cantera;
-
-        #     public partial class {wrapper_class_name} : IDisposable
-        #     {{
-        #         readonly {handle_class_name} _handle;
-
-        #         #pragma warning disable CS1591
-
-        #         {hanging_text(properties_text, 16)}
-
-        #         #pragma warning restore CS1591
-
-        #         /// <summary>
-        #         /// Frees the underlying resources used by the
-        #         /// native Cantera library for this instance.
-        #         /// </summary>
-        #         public void Dispose() =>
-        #             _handle.Dispose();
-        #     }}
-        # """).lstrip()
-
-        self._write_file(wrapper_class_name + ".g.cs", wrapper_class_text)
+        self._write_file(file_name, wrapper_class_text)
 
     def generate_source(self, headers_files: List[HeaderFile]):
         self._out_dir.mkdir(parents=True, exist_ok=True)

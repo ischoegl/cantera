@@ -74,9 +74,14 @@ cdef class ReactorBase(ReactorNode):
         """
         Set ``solution`` to be the object used to compute thermodynamic
         properties and kinetic rates for this reactor.
+
+        .. deprecated:: 3.1
+
+            After Cantera 3.1, a change of reactor contents after instantiation
+            will be disabled.
         """
         self._thermo = solution
-        self.rbase.setSolution(solution._base)
+        self.rbase.setSolution(solution._base)  # raises warning in C++ core
 
     def syncState(self):
         """
@@ -945,14 +950,50 @@ cdef class ReactorSurface(ReactorNode):
         self.surface.addSensitivityReaction(m)
 
 
-cdef class WallBase:
+cdef class Connector:
+    """
+    Common base class for walls and flow devices.
+    """
+    edge_type = "edge"
+
+    def __cinit__(self, ReactorNode r0=None, ReactorNode r1=None, *,
+                  name="(none)", **kwargs):
+        if isinstance(r0, ReactorNode) and isinstance(r1, ReactorNode):
+            self._edge = newConnector(stringify(self.edge_type),
+                                      r0._node, r1._node, stringify(name))
+        else:
+            # deprecated: will raise warnings in C++ layer
+            self._edge = newConnector(stringify(self.edge_type))
+            self._edge.get().setName(stringify(name))
+        self.edge = self._edge.get()
+
+    @property
+    def type(self):
+        """The type of the connector."""
+        return pystr(self.edge.type())
+
+    @property
+    def name(self):
+        """The name of the connector."""
+        return pystr(self.edge.name())
+
+    @name.setter
+    def name(self, name):
+        self.edge.setName(stringify(name))
+
+    def __reduce__(self):
+        raise NotImplementedError('Reactor object is not picklable')
+
+    def __copy__(self):
+        raise NotImplementedError('Reactor object is not copyable')
+
+
+cdef class WallBase(Connector):
     """
     Common base class for walls.
     """
-    wall_type = "none"
-    def __cinit__(self, *args, name="(none)", **kwargs):
-        self._wall = newWall(stringify(self.wall_type), stringify(name))
-        self.wall = self._wall.get()
+    def __cinit__(self, *args, **kwargs):
+        self.wall = <CxxWall*>(self.edge)
 
     def __init__(self, left, right, *, name="(none)", A=None, K=None, U=None,
                  Q=None, velocity=None, edge_attr=None):
@@ -1005,29 +1046,11 @@ cdef class WallBase:
             self.velocity = velocity
         self.edge_attr = edge_attr or {}
 
-    def _install(self, ReactorBase left, ReactorBase right):
-        """
-        Install this Wall between two `Reactor` objects or between a
-        `Reactor` and a `Reservoir`.
-        """
         left._add_wall(self)
         right._add_wall(self)
-        self.wall.install(deref(left.rbase), deref(right.rbase))
         # Keep references to prevent premature garbage collection
         self._left_reactor = left
         self._right_reactor = right
-
-    property type:
-        """The type of the wall."""
-        def __get__(self):
-            return pystr(self.wall.type())
-
-    property name:
-        """The name of the wall."""
-        def __get__(self):
-            return pystr(self.wall.name())
-        def __set__(self, name):
-            self.wall.setName(stringify(name))
 
     property area:
         """ The wall area [m^2]. """
@@ -1035,6 +1058,13 @@ cdef class WallBase:
             return self.wall.area()
         def __set__(self, double value):
             self.wall.setArea(value)
+
+    def _install(self, ReactorBase left, ReactorBase right):
+        """
+        Install this Wall between two `Reactor` objects or between a
+        `Reactor` and a `Reservoir`.
+        """
+        self.wall.install(deref(left.rbase), deref(right.rbase))
 
     @property
     def left_reactor(self):
@@ -1144,7 +1174,7 @@ cdef class Wall(WallBase):
     :math:`q_0(t)` is a specified function of time. The heat flux is positive
     when heat flows from the reactor on the left to the reactor on the right.
     """
-    wall_type = "Wall"
+    edge_type = "Wall"
 
     property expansion_rate_coeff:
         """
@@ -1213,7 +1243,7 @@ cdef class Wall(WallBase):
         (<CxxWall*>self.wall).setHeatFlux(f.func)
 
 
-cdef class FlowDevice:
+cdef class FlowDevice(Connector):
     """
     Base class for devices that allow flow between reactors.
 
@@ -1224,10 +1254,8 @@ cdef class FlowDevice:
     across a FlowDevice, and the pressure difference equals the difference in
     pressure between the upstream and downstream reactors.
     """
-    flowdevice_type = "none"
-    def __cinit__(self, *args, name="(none)", **kwargs):
-        self._dev = newFlowDevice(stringify(self.flowdevice_type), stringify(name))
-        self.dev = self._dev.get()
+    def __cinit__(self, *args, **kwargs):
+        self.dev = <CxxFlowDevice*>(self.edge)
 
     def __init__(self, upstream, downstream, *, name="(none)", edge_attr=None):
         assert self.dev != NULL
@@ -1235,29 +1263,18 @@ cdef class FlowDevice:
         self.edge_attr = edge_attr or {}
         self._install(upstream, downstream)
 
-    property type:
-        """The type of the flow device."""
-        def __get__(self):
-            return pystr(self.dev.type())
-
-    property name:
-        """The name of the flow device."""
-        def __get__(self):
-            return pystr(self.dev.name())
-        def __set__(self, name):
-            self.dev.setName(stringify(name))
+        upstream._add_outlet(self)
+        downstream._add_inlet(self)
+        # Keep references to prevent premature garbage collection
+        self._upstream = upstream
+        self._downstream = downstream
 
     def _install(self, ReactorBase upstream, ReactorBase downstream):
         """
         Install the device between the ``upstream`` (source) and ``downstream``
         (destination) reactors or reservoirs.
         """
-        upstream._add_outlet(self)
-        downstream._add_inlet(self)
         self.dev.install(deref(upstream.rbase), deref(downstream.rbase))
-        # Keep references to prevent premature garbage collection
-        self._upstream = upstream
-        self._downstream = downstream
 
     @property
     def upstream(self):
@@ -1392,7 +1409,7 @@ cdef class MassFlowController(FlowDevice):
     that this capability should be used with caution, since no account is
     taken of the work required to do this.
     """
-    flowdevice_type = "MassFlowController"
+    edge_type = "MassFlowController"
 
     def __init__(self, upstream, downstream, *, name="(none)", mdot=1., **kwargs):
         super().__init__(upstream, downstream, name=name, **kwargs)
@@ -1466,7 +1483,7 @@ cdef class Valve(FlowDevice):
     value, very small pressure differences will result in flow between the
     reactors that counteracts the pressure difference.
     """
-    flowdevice_type = "Valve"
+    edge_type = "Valve"
 
     def __init__(self, upstream, downstream, *, name="(none)", K=1., **kwargs):
         super().__init__(upstream, downstream, name=name, **kwargs)
@@ -1509,7 +1526,7 @@ cdef class PressureController(FlowDevice):
 
     where :math:`f` is the arbitrary function of a single argument.
     """
-    flowdevice_type = "PressureController"
+    edge_type = "PressureController"
 
     def __init__(self, upstream, downstream, *, name="(none)", primary=None, K=1.):
         super().__init__(upstream, downstream, name=name)

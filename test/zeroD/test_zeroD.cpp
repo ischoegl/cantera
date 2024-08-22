@@ -19,8 +19,9 @@ TEST(zerodim, simple)
 
     auto sol = newSolution("gri30.yaml", "gri30", "none");
     sol->thermo()->setState_TPX(T, P, X);
-    auto cppReactor = newReactor("IdealGasReactor", sol, "simple");
-    ASSERT_EQ(cppReactor->name(), "simple");
+    auto cppNode = newReactorNode("IdealGasReactor", sol, "simple");
+    ASSERT_EQ(cppNode->name(), "simple");
+    auto cppReactor = std::dynamic_pointer_cast<ReactorBase>(cppNode);
     cppReactor->initialize();
     ReactorNet network;
     network.addReactor(dynamic_cast<IdealGasReactor&>(*cppReactor));
@@ -54,6 +55,20 @@ TEST(zerodim, test_guards)
     EXPECT_THROW(MassFlowController().updateMassFlowRate(0.), CanteraError);
     EXPECT_THROW(PressureController().updateMassFlowRate(0.), CanteraError);
     EXPECT_THROW(Valve().updateMassFlowRate(0.), CanteraError);
+}
+
+TEST(zerodim, surface)
+{
+    auto gas = newSolution("ptcombust.yaml", "gas");
+    auto surf = newInterface("ptcombust.yaml", "Pt_surf", {gas});
+
+    auto cppNode0 = newReactorNode("IdealGasReactor", gas, "bulk");
+    auto cppReactor = std::dynamic_pointer_cast<ReactorBase>(cppNode0);
+    ASSERT_EQ(cppReactor->name(), "bulk");
+
+    auto cppNode1 = newReactorNode("ReactorSurface", surf, "surface");
+    auto cppSurface = std::dynamic_pointer_cast<ReactorSurface>(cppNode1);
+    ASSERT_EQ(cppSurface->name(), "surface");
 }
 
 // This test ensures that prior reactor initialization of a reactor does

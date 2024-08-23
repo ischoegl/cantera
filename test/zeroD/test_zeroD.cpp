@@ -21,15 +21,15 @@ TEST(zerodim, simple)
     sol->thermo()->setState_TPX(T, P, X);
     auto cppNode = newReactorNode("IdealGasReactor", sol, "simple");
     ASSERT_EQ(cppNode->name(), "simple");
-    auto cppReactor = std::dynamic_pointer_cast<ReactorBase>(cppNode);
-    cppReactor->initialize();
+    auto reactor = std::dynamic_pointer_cast<ReactorBase>(cppNode);
+    reactor->initialize();
     ReactorNet network;
-    network.addReactor(dynamic_cast<IdealGasReactor&>(*cppReactor));
+    network.addReactor(dynamic_cast<IdealGasReactor&>(*reactor));
     network.initialize();
 
     double t = 0.0;
     while (t < 0.1) {
-        ASSERT_GE(cppReactor->temperature(), T);
+        ASSERT_GE(reactor->temperature(), T);
         t = network.time() + 5e-3;
         network.advance(t);
     }
@@ -62,13 +62,101 @@ TEST(zerodim, surface)
     auto gas = newSolution("ptcombust.yaml", "gas");
     auto surf = newInterface("ptcombust.yaml", "Pt_surf", {gas});
 
-    auto cppNode0 = newReactorNode("IdealGasReactor", gas, "bulk");
-    auto cppReactor = std::dynamic_pointer_cast<ReactorBase>(cppNode0);
-    ASSERT_EQ(cppReactor->name(), "bulk");
+    auto node0 = newReactorNode("IdealGasReactor", gas, "bulk");
+    auto reactor = std::dynamic_pointer_cast<ReactorBase>(node0);
+    ASSERT_EQ(reactor->name(), "bulk");
 
-    auto cppNode1 = newReactorNode("ReactorSurface", surf, "surface");
-    auto cppSurface = std::dynamic_pointer_cast<ReactorSurface>(cppNode1);
+    auto node1 = newReactorNode("ReactorSurface", surf, "surface");
+    auto cppSurface = std::dynamic_pointer_cast<ReactorSurface>(node1);
     ASSERT_EQ(cppSurface->name(), "surface");
+}
+
+TEST(zerodim, flowdevice)
+{
+    auto gas = newSolution("gri30.yaml", "gri30", "none");
+
+    auto node0 = newReactorNode("IdealGasReactor", gas, "upstream");
+    auto node1 = newReactorNode("IdealGasReactor", gas, "downstream");
+
+    auto edge = newConnector("Valve", node0, node1, "valve");
+    ASSERT_EQ(edge->name(), "valve");
+
+    auto valve = std::dynamic_pointer_cast<FlowDevice>(edge);
+    ASSERT_EQ(valve->in().name(), "upstream");
+    ASSERT_EQ(valve->out().name(), "downstream");
+
+    ASSERT_EQ(std::dynamic_pointer_cast<ReactorBase>(node0)->nInlets(), 0);
+    ASSERT_EQ(std::dynamic_pointer_cast<ReactorBase>(node0)->nOutlets(), 1);
+    ASSERT_EQ(std::dynamic_pointer_cast<ReactorBase>(node1)->nInlets(), 1);
+    ASSERT_EQ(std::dynamic_pointer_cast<ReactorBase>(node1)->nOutlets(), 0);
+}
+
+TEST(zerodim, wall)
+{
+    auto gas = newSolution("gri30.yaml", "gri30", "none");
+
+    auto node0 = newReactorNode("IdealGasReactor", gas, "left");
+    auto node1 = newReactorNode("IdealGasReactor", gas, "right");
+
+    auto edge = newConnector("Wall", node0, node1, "wall");
+    ASSERT_EQ(edge->name(), "wall");
+
+    auto wall = std::dynamic_pointer_cast<WallBase>(edge);
+    ASSERT_EQ(wall->left().name(), "left");
+    ASSERT_EQ(wall->right().name(), "right");
+
+    ASSERT_EQ(std::dynamic_pointer_cast<ReactorBase>(node0)->nWalls(), 1);
+    ASSERT_EQ(std::dynamic_pointer_cast<ReactorBase>(node1)->nWalls(), 1);
+}
+
+TEST(zerodim, empty)
+{
+    // Deprecated/transitional modes. Remove after Cantera 3.1.
+    EXPECT_THROW(newReactorNode("IdealGasReactor", nullptr, "igr"), CanteraError);
+    EXPECT_THROW(newConnector("Valve", nullptr, nullptr, "valve"), CanteraError);
+
+    suppress_deprecation_warnings();
+    auto node0 = newReactorNode("IdealGasReactor", nullptr, "r0");
+    auto node1 = newReactorNode("IdealGasReactor", nullptr, "r1");
+    make_deprecation_warnings_fatal();
+
+    auto gas = newSolution("gri30.yaml", "gri30", "none");
+    auto r0 = std::dynamic_pointer_cast<ReactorBase>(node0);
+    auto r1 = std::dynamic_pointer_cast<ReactorBase>(node1);
+
+    suppress_deprecation_warnings();
+    r0->insert(gas);
+    r1->insert(gas);
+    make_deprecation_warnings_fatal();
+
+    auto edge0 = newConnector("Wall", node0, node1, "wall");
+    auto edge1 = newConnector("Valve", node0, node1, "valve");
+
+    auto wall = std::dynamic_pointer_cast<WallBase>(edge0);
+    EXPECT_THROW(wall->install(*r0, *r1), CanteraError);
+    auto valve = std::dynamic_pointer_cast<FlowDevice>(edge1);
+    EXPECT_THROW(valve->install(*r0, *r1), CanteraError);
+
+    suppress_deprecation_warnings();
+    auto edge2 = newConnector("Wall", nullptr, nullptr, "empty_wall");
+    auto edge3 = newConnector("Valve", nullptr, nullptr, "empty_valve");
+    make_deprecation_warnings_fatal();
+
+    wall = std::dynamic_pointer_cast<WallBase>(edge2);
+    valve = std::dynamic_pointer_cast<FlowDevice>(edge3);
+
+    suppress_deprecation_warnings();
+    wall->install(*r0, *r1);
+    valve->install(*r0, *r1);
+    make_deprecation_warnings_fatal();
+
+    ASSERT_EQ(wall->name(), "empty_wall");
+    ASSERT_EQ(wall->left().name(), "r0");
+    ASSERT_EQ(wall->right().name(), "r1");
+
+    ASSERT_EQ(valve->name(), "empty_valve");
+    ASSERT_EQ(valve->in().name(), "r0");
+    ASSERT_EQ(valve->out().name(), "r1");
 }
 
 // This test ensures that prior reactor initialization of a reactor does

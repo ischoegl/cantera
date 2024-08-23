@@ -833,7 +833,7 @@ cdef class ReactorSurface(ReactorNode):
     def __init__(self, kin=None, Reactor r=None, *,
                  name="(none)", A=None, node_attr=None):
         if kin is not None:
-            self.kinetics = kin
+            self._kinetics = kin
         if r is not None:
             self.install(r)
         if A is not None:
@@ -863,9 +863,6 @@ cdef class ReactorSurface(ReactorNode):
         def __get__(self):
             self.surface.syncState()
             return self._kinetics
-        def __set__(self, Kinetics k):
-            self._kinetics = k
-            self.surface.setKinetics(self._kinetics.kinetics)
 
     property coverages:
         """
@@ -958,13 +955,8 @@ cdef class Connector:
 
     def __cinit__(self, ReactorNode r0=None, ReactorNode r1=None, *,
                   name="(none)", **kwargs):
-        if isinstance(r0, ReactorNode) and isinstance(r1, ReactorNode):
-            self._edge = newConnector(stringify(self.edge_type),
-                                      r0._node, r1._node, stringify(name))
-        else:
-            # deprecated: will raise warnings in C++ layer
-            self._edge = newConnector(stringify(self.edge_type))
-            self._edge.get().setName(stringify(name))
+        self._edge = newConnector(stringify(self.edge_type),
+                                    r0._node, r1._node, stringify(name))
         self.edge = self._edge.get()
 
     @property
@@ -1032,8 +1024,6 @@ cdef class WallBase(Connector):
         self._velocity_func = None
         self._heat_flux_func = None
 
-        self._install(left, right)
-
         if A is not None:
             self.area = A
         if K is not None:
@@ -1058,13 +1048,6 @@ cdef class WallBase(Connector):
             return self.wall.area()
         def __set__(self, double value):
             self.wall.setArea(value)
-
-    def _install(self, ReactorBase left, ReactorBase right):
-        """
-        Install this Wall between two `Reactor` objects or between a
-        `Reactor` and a `Reservoir`.
-        """
-        self.wall.install(deref(left.rbase), deref(right.rbase))
 
     @property
     def left_reactor(self):
@@ -1261,20 +1244,12 @@ cdef class FlowDevice(Connector):
         assert self.dev != NULL
         self._rate_func = None
         self.edge_attr = edge_attr or {}
-        self._install(upstream, downstream)
 
         upstream._add_outlet(self)
         downstream._add_inlet(self)
         # Keep references to prevent premature garbage collection
         self._upstream = upstream
         self._downstream = downstream
-
-    def _install(self, ReactorBase upstream, ReactorBase downstream):
-        """
-        Install the device between the ``upstream`` (source) and ``downstream``
-        (destination) reactors or reservoirs.
-        """
-        self.dev.install(deref(upstream.rbase), deref(downstream.rbase))
 
     @property
     def upstream(self):

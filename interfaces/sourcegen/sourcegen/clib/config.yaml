@@ -1,0 +1,20 @@
+# Configuration for CLib code generation.
+
+# This file is part of Cantera. See License.txt in the top-level directory or
+# at https://cantera.org/license.txt for license and copyright information.
+
+# Ignore these files entirely:
+ignore_files: []
+
+# Ignore these specific functions:
+ignore_funcs:
+  ctsoln_auto.yaml: [soln_newInterface]
+
+# Cabinets holding objects
+cabinets:
+- Solution
+- Interface
+- ThermoPhase
+- Kinetics
+- Transport
+- Func1

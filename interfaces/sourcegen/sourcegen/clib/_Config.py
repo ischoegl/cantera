@@ -34,13 +34,13 @@ class Config:
         "const string&": "const char*",
         "shared_ptr<T>": "int",
         "const shared_ptr<T>": "int",
-        "const vector<double>&": 'const double*',
-        "const vector<shared_ptr<T>>&": 'int[]',
+        "const vector<double>&": "const double*",
+        "const vector<shared_ptr<T>>&": "int[]",
     }
 
-    includes: dict[str,list[str]]
+    includes: dict[str, list[str]]
 
     @classmethod
-    def from_parsed(cls, *, includes=None) -> 'Config':
+    def from_parsed(cls, *, includes = None) -> "Config":
         """Ensure that configurations are correct."""
         return cls(includes or {})

@@ -6,6 +6,7 @@
 from pathlib import Path
 import logging
 import re
+from typing import Iterable
 
 from ._dataclasses import HeaderFile, Func, Recipe
 from ._helpers import read_config
@@ -26,15 +27,17 @@ class HeaderFileParser:
     themselves are used for subsequent code scaffolding.
     """
 
-    def __init__(self, path: Path, ignore_funcs: list[str] = None):
+    def __init__(self, path: Path, ignore_funcs: Iterable[str] = None) -> None:
         self._path = path
         self._ignore_funcs = ignore_funcs
 
     @classmethod
-    def headers_from_yaml(cls, ignore_files, ignore_funcs) -> list[HeaderFile]:
+    def headers_from_yaml(
+            cls, ignore_files: Iterable[str], ignore_funcs: Iterable[str]
+        ) -> list[HeaderFile]:
         """Parse header file YAML configuration."""
-        files = [ff for ff in _DATA_PATH.glob("*.yaml") if ff.name not in ignore_files]
-        files.sort()
+        files = sorted(
+            ff for ff in _DATA_PATH.glob("*.yaml") if ff.name not in ignore_files)
         return [cls(ff, ignore_funcs.get(ff.name, []))._parse_yaml() for ff in files]
 
     def _parse_yaml(self) -> HeaderFile:
@@ -44,7 +47,7 @@ class HeaderFileParser:
                 while True:
                     line = fid.readline()
                     if line.startswith("#"):
-                        doc.append(line.lstrip("#").strip())
+                        doc.append(line.removeprefix("#").strip())
                     else:
                         break
             if doc and doc[0].startswith("This file is part of "):
@@ -58,13 +61,13 @@ class HeaderFileParser:
         parents = config.get("parents", [])
         derived = config.get("derived", [])
         for recipe in config["recipes"]:
-            if recipe['name'] in self._ignore_funcs:
+            if recipe["name"] in self._ignore_funcs:
                 continue
             uses = recipe.get("uses", [])
             if not isinstance(uses, list):
                 uses = [uses]
             recipes.append(
-                Recipe(recipe['name'],
+                Recipe(recipe["name"],
                        recipe.get("implements", ""),
                        uses,
                        recipe.get("what", ""),
@@ -79,7 +82,9 @@ class HeaderFileParser:
                           read_docstring())
 
     @classmethod
-    def headers_from_h(cls, ignore_files, ignore_funcs) -> list[HeaderFile]:
+    def headers_from_h(
+            cls, ignore_files: Iterable[str], ignore_funcs: Iterable[str]
+        ) -> list[HeaderFile]:
         """Parse existing header file."""
         files = [ff for ff in _CLIB_PATH.glob("*.h")
                  if ff.name not in ignore_files + _CLIB_IGNORE]

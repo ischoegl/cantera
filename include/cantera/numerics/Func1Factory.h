@@ -20,7 +20,7 @@ namespace Cantera
 //!     shared_ptr<Func1> d1 = newFunc1("sin", {1.0});
 //! ```
 //! @since New in %Cantera 3.0
-class Func1Factory : public Factory<Func1, const vector<double>&>
+class Func1Factory : public SharedFactory<Func1, const vector<double>&>
 {
 public:
     /**
@@ -54,7 +54,7 @@ private:
 //! ```
 //! @since New in %Cantera 3.0
 class Math1FactoryA
-    : public Factory<Func1, const shared_ptr<Func1>, const shared_ptr<Func1>>
+    : public SharedFactory<Func1, const shared_ptr<Func1>, const shared_ptr<Func1>>
 {
 public:
     /**
@@ -87,7 +87,7 @@ private:
 //!     shared_ptr<Func1> d1 = newFunc1("plus-constant", f, 1.);
 //! ```
 //! @since New in %Cantera 3.0
-class Math1FactoryB : public Factory<Func1, const shared_ptr<Func1>, double>
+class Math1FactoryB : public SharedFactory<Func1, const shared_ptr<Func1>, double>
 {
 public:
     /**

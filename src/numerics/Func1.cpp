@@ -326,7 +326,7 @@ Tabulated1::Tabulated1(size_t n, const double* tvals, const double* fvals,
     setMethod(method);
 }
 
-Tabulated1::Tabulated1(const vector<double>& params) : m_isLinear(true)
+Tabulated1::Tabulated1(const vector<double>& params, const string& method)
 {
     if (params.size() < 4) {
         throw CanteraError("Tabulated1::Tabulated1",
@@ -347,6 +347,7 @@ Tabulated1::Tabulated1(const vector<double>& params) : m_isLinear(true)
     }
     m_fvec.resize(n);
     copy(params.data() + n, params.data() + 2 * n, m_fvec.begin());
+    setMethod(method);
 }
 
 void Tabulated1::setMethod(const string& method)

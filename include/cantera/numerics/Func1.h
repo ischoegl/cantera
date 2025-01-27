@@ -348,7 +348,7 @@ public:
 
     //! Constructor uses @f$ 2 n @f$ parameters in the following order:
     //! @f$ [t_0, t_1, \dots, t_{n-1}, f_0, f_1, \dots, f_{n-1}] @f$
-    Tabulated1(const vector<double>& params);
+    Tabulated1(const vector<double>& params, const string& method="linear");
 
     //! Set the interpolation method
     //! @param method  Evaluation method. If @c "linear" (default), a linear
@@ -375,7 +375,7 @@ public:
 private:
     vector<double> m_tvec; //!< Vector of time values
     vector<double> m_fvec; //!< Vector of function values
-    bool m_isLinear; //!< Boolean indicating interpolation method
+    bool m_isLinear = true; //!< Boolean indicating interpolation method
 };
 
 

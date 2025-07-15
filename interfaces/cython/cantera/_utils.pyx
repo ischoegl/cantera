@@ -4,12 +4,15 @@
 import sys
 import os
 import warnings
+from pathlib import Path
+from typing import Any
 from cpython.ref cimport PyObject
 from libcpp.utility cimport move
 import numbers
 import importlib.metadata
 from collections import namedtuple
 import numpy as np
+
 from .units cimport Units
 
 
@@ -44,36 +47,36 @@ cdef string stringify(x) except *:
 cdef pystr(string x):
     return x.decode()
 
-def add_directory(directory):
+def add_directory(directory: str | Path) -> None:
     """ Add a directory to search for Cantera data files. """
     CxxAddDirectory(stringify(str(directory)))
 
-def get_data_directories():
+def get_data_directories() -> list[str]:
     """ Get a list of the directories Cantera searches for data files. """
     return pystr(CxxGetDataDirectories(stringify(os.pathsep))).split(os.pathsep)
 
-__sundials_version__ = pystr(get_sundials_version())
+__sundials_version__: str = pystr(get_sundials_version())
 
-__version__ = pystr(CxxVersion())
+__version__: str = pystr(CxxVersion())
 
 if __version__ != pystr(get_cantera_version_py()):
     raise ImportError("Mismatch between Cantera Python module version "
         f"({pystr(get_cantera_version_py())}) and Cantera shared library "
         f"version ({__version__})")
 
-__git_commit__ = pystr(CxxGitCommit())
+__git_commit__: str = pystr(CxxGitCommit())
 
 if __git_commit__ != pystr(get_cantera_git_commit_py()):
     raise ImportError("Mismatch between Cantera Python module Git commit "
         f"({pystr(get_cantera_git_commit_py())}) and Cantera shared library "
         f"git commit ({__git_commit__})")
 
-_USE_SPARSE = False
+_USE_SPARSE: bool = False
 
-def debug_mode_enabled():
+def debug_mode_enabled() -> bool:
     return CxxDebugModeEnabled()
 
-def print_stack_trace_on_segfault():
+def print_stack_trace_on_segfault() -> None:
     """
     Enable printing a stack trace if a segfault occurs. Not recommended for general
     use as it is possible for this to deadlock.
@@ -82,11 +85,11 @@ def print_stack_trace_on_segfault():
     """
     CxxPrintStackTraceOnSegfault()
 
-def appdelete():
+def appdelete() -> None:
     """ Delete all global Cantera C++ objects """
     CxxAppdelete()
 
-def use_sparse(sparse=True):
+def use_sparse(sparse: bool = True) -> None:
     """
     Enable sparse output using `scipy.sparse`. Sparse output requires a working
     *SciPy* installation. Use pip or conda to install ``scipy`` to enable this method.
@@ -99,24 +102,24 @@ def use_sparse(sparse=True):
             raise
     _USE_SPARSE = sparse
 
-def make_deprecation_warnings_fatal():
+def make_deprecation_warnings_fatal() -> None:
     warnings.filterwarnings('error', category=DeprecationWarning,
                             module='cantera')  # for warnings in Python code
     warnings.filterwarnings('error', category=DeprecationWarning,
                             message='.*Cantera.*')  # for warnings in Cython code
     Cxx_make_deprecation_warnings_fatal()
 
-def suppress_deprecation_warnings():
+def suppress_deprecation_warnings() -> None:
     warnings.filterwarnings('ignore', category=DeprecationWarning,
                             module='cantera')  # for warnings in Python code
     warnings.filterwarnings('ignore', category=DeprecationWarning,
                             message='.*Cantera.*')  # for warnings in Cython code
     Cxx_suppress_deprecation_warnings()
 
-def suppress_thermo_warnings(pybool suppress=True):
+def suppress_thermo_warnings(pybool suppress: bool = True) -> None:
     Cxx_suppress_thermo_warnings(suppress)
 
-def use_legacy_rate_constants(pybool legacy):
+def use_legacy_rate_constants(pybool legacy: bool) -> None:
     """
     Set definition used for rate constant calculation.
 
@@ -128,7 +131,7 @@ def use_legacy_rate_constants(pybool legacy):
     """
     Cxx_use_legacy_rate_constants(legacy)
 
-def hdf_support():
+def hdf_support() -> set[str]:
     """
     Returns list of libraries that include HDF support:
     - 'native': if Cantera was compiled with C++ HighFive HDF5 support.
@@ -155,7 +158,7 @@ cdef comp_map_to_dict(Composition m):
 
 class CanteraError(RuntimeError):
     @staticmethod
-    def set_stack_trace_depth(depth):
+    def set_stack_trace_depth(depth: int) -> None:
         """
         Set the number of stack frames to include when a `CanteraError` is displayed. By
         default, or if the depth is set to 0, no stack information will be shown.

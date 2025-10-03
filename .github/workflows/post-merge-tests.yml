@@ -379,7 +379,7 @@ jobs:
     timeout-minutes: 90
     strategy:
       matrix:
-        macos-version: ['macos-13'] # 'macos-13-large', 'macos-13-xlarge' require paid plans
+        macos-version: ['macos-13', 'macos-15-intel']
         python-version: ['3.13']  # previously failed for 3.13.4 and 3.13.5 on macos-13
       fail-fast: false
     steps:

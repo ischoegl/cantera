@@ -250,6 +250,8 @@ jobs:
             extra-build-args: cxx_flags='-std=c++20'
           - macos-version: 'macos-15'
             python-version: '3.11'
+          - macos-version: 'macos-15-intel'
+            python-version: '3.11'
       fail-fast: false
     steps:
     - uses: actions/checkout@v5

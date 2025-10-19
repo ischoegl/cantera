@@ -254,11 +254,20 @@ protected:
     //!     Solution object instead.
     void setKinetics(Kinetics& kin) override;
 
+    //! Retrieve the index of a species within the solution vector.
     //! Return the index in the solution vector for this reactor of the species
     //! named *nm*, in either the homogeneous phase or a surface phase, relative
     //! to the start of the species terms. Used to implement componentIndex for
     //! specific reactor implementations.
+    //! @param nm  Species name.
+    //! @exception Throws a CanteraError if the specified species is not found.
     virtual size_t speciesIndex(const string& nm) const;
+
+    //! Retrieve the index of a species within the solution vector.
+    //! @param nm  Species name.
+    //! @return Returns @ref npos if a species is not found.
+    //! @since New in %Cantera 3.2.
+    size_t _speciesIndex(const string& nm) const;
 
     //! Evaluate terms related to Walls. Calculates #m_vdot and #m_Qdot based on
     //! wall movement and heat transfer.

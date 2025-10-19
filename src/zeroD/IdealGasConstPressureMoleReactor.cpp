@@ -238,12 +238,12 @@ size_t IdealGasConstPressureMoleReactor::componentIndex(const string& nm) const
     if (nm == "temperature") {
         return 0;
     }
-    try {
-        return speciesIndex(nm) + m_sidx;
-    } catch (const CanteraError&) {
-        throw CanteraError("IdealGasConstPressureReactor::componentIndex",
-            "Component '{}' not found", nm);
+    size_t ix = _speciesIndex(nm);
+    if (ix != npos) {
+        return ix + m_sidx;
     }
+    throw CanteraError("IdealGasConstPressureMoleReactor::componentIndex",
+        "Component '{}' not found", nm);
 }
 
 string IdealGasConstPressureMoleReactor::componentName(size_t k) {

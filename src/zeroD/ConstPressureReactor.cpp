@@ -136,12 +136,12 @@ size_t ConstPressureReactor::componentIndex(const string& nm) const
     if (nm == "enthalpy") {
         return 1;
     }
-    try {
-        return speciesIndex(nm) + 2;
-    } catch (const CanteraError&) {
-        throw CanteraError("ConstPressureReactor::componentIndex",
-            "Component '{}' not found", nm);
+    size_t ix = _speciesIndex(nm);
+    if (ix != npos) {
+        return ix + 2;
     }
+    throw CanteraError("ConstPressureReactor::componentIndex",
+        "Component '{}' not found", nm);
 }
 
 string ConstPressureReactor::componentName(size_t k) {

@@ -348,12 +348,12 @@ size_t FlowReactor::componentIndex(const string& nm) const
     } else if (nm == "temperature") {
         return 3;
     }
-    try {
-        return speciesIndex(nm) + m_offset_Y;
-    } catch (const CanteraError&) {
-        throw CanteraError("FlowReactor::componentIndex",
-            "Component '{}' not found", nm);
+    size_t ix = _speciesIndex(nm);
+    if (ix != npos) {
+        return ix + m_offset_Y;
     }
+    throw CanteraError("FlowReactor::componentIndex",
+        "Component '{}' not found", nm);
 }
 
 string FlowReactor::componentName(size_t k)

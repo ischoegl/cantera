@@ -156,12 +156,12 @@ size_t IdealGasReactor::componentIndex(const string& nm) const
     if (nm == "temperature") {
         return 2;
     }
-    try {
-        return speciesIndex(nm) + 3;
-    } catch (const CanteraError&) {
-        throw CanteraError("IdealGasReactor::componentIndex",
-            "Component '{}' not found", nm);
+    size_t ix = _speciesIndex(nm);
+    if (ix != npos) {
+        return ix + 3;
     }
+    throw CanteraError("IdealGasReactor::componentIndex",
+        "Component '{}' not found", nm);
 }
 
 string IdealGasReactor::componentName(size_t k) {

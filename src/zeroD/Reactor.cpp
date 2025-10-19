@@ -463,6 +463,16 @@ void Reactor::addSensitivitySpeciesEnthalpy(size_t k)
 
 size_t Reactor::speciesIndex(const string& nm) const
 {
+    size_t ix = _speciesIndex(nm);
+    if (ix == npos) {
+        throw CanteraError("Reactor::speciesIndex",
+            "Species '{}' not found", nm);
+    }
+    return ix;
+}
+
+size_t Reactor::_speciesIndex(const string& nm) const
+{
     // check for a gas species name
     size_t k = m_thermo->speciesIndex(nm, false);
     if (k != npos) {
@@ -480,8 +490,7 @@ size_t Reactor::speciesIndex(const string& nm) const
             offset += th->nSpecies();
         }
     }
-    throw CanteraError("Reactor::speciesIndex",
-        "Species '{}' not found", nm);
+    return npos;
 }
 
 size_t Reactor::componentIndex(const string& nm) const
@@ -495,12 +504,12 @@ size_t Reactor::componentIndex(const string& nm) const
     if (nm == "int_energy") {
         return 2;
     }
-    try {
-        return speciesIndex(nm) + 3;
-    } catch (const CanteraError&) {
-        throw CanteraError("Reactor::componentIndex",
-            "Component '{}' not found", nm);
+    size_t ix = _speciesIndex(nm);
+    if (ix != npos) {
+        return ix + 3;
     }
+    throw CanteraError("Reactor::componentIndex",
+        "Component '{}' not found", nm);
 }
 
 string Reactor::componentName(size_t k) {

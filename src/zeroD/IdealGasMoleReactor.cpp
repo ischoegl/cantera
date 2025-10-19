@@ -49,12 +49,12 @@ size_t IdealGasMoleReactor::componentIndex(const string& nm) const
     if (nm == "volume") {
         return 1;
     }
-    try {
-        return speciesIndex(nm) + m_sidx;
-    } catch (const CanteraError&) {
-        throw CanteraError("IdealGasMoleReactor::componentIndex",
-            "Component '{}' not found", nm);
+    size_t ix = _speciesIndex(nm);
+    if (ix != npos) {
+        return ix + m_sidx;
     }
+    throw CanteraError("IdealGasMoleReactor::componentIndex",
+        "Component '{}' not found", nm);
 }
 
 string IdealGasMoleReactor::componentName(size_t k)

@@ -290,4 +290,4 @@ int MultiNewton::solve(double* x0, double* x1, SteadyStateSystem& r, int logleve
     return status;
 }
 
-} // end namespace Cantera
+} // end namespace Cantera::OneD

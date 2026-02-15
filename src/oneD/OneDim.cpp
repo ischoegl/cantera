@@ -14,7 +14,7 @@
 
 using namespace std;
 
-namespace Cantera
+namespace Cantera::OneD
 {
 
 OneDim::OneDim(vector<shared_ptr<Domain1D>>& domains)

@@ -14,8 +14,10 @@
 
 namespace Cantera
 {
-
 class AnyMap;
+
+namespace OneD
+{
 
 /**
  * Container class for multiple-domain 1D problems. Each domain is
@@ -295,6 +297,7 @@ private:
     //! @}
 };
 
+}
 }
 
 #endif

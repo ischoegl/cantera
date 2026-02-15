@@ -10,7 +10,7 @@
 
 #include "OneDim.h"
 
-namespace Cantera
+namespace Cantera::OneD
 {
 
 /**
